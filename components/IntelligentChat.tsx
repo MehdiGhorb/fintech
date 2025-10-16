@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Send, Loader2, TrendingUp, Newspaper, Calendar, BarChart3, Sparkles } from 'lucide-react';
+import { Send, Loader2, TrendingUp, Newspaper, Calendar, BarChart3, Sparkles, Mic, ChevronDown, User } from 'lucide-react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 
 // Dynamic import for chart to avoid SSR issues
 const MiniChart = dynamic(() => import('./MiniChart'), { ssr: false });
+const ComparisonChart = dynamic(() => import('./ComparisonChart'), { ssr: false });
 
 interface Message {
   role: 'user' | 'assistant';
@@ -18,12 +19,20 @@ interface Message {
     price: number;
     change24h: number;
   };
+  comparisonData?: {
+    stocks: {
+      symbol: string;
+      name: string;
+      price: number;
+      change24h: number;
+    }[];
+  };
 }
 
 const SUGGESTED_PROMPTS = [
-  "Show me Tesla stock chart",
-  "What's happening with S&P 500?",
-  "Latest financial news",
+  "Compare Tesla and Apple stocks",
+  "Show me Microsoft chart",
+  "Latest market news",
 ];
 
 export default function IntelligentChat() {
@@ -48,26 +57,40 @@ export default function IntelligentChat() {
   const detectIntent = (query: string) => {
     const lowerQuery = query.toLowerCase();
     
-    // Check for stock symbols or company names
-    const stockKeywords = ['stock', 'chart', 'price', 'tesla', 'tsla', 'apple', 'aapl', 'google', 'googl', 'microsoft', 'msft', 'amazon', 'amzn', 'nvidia', 'nvda', 's&p', 'sp500', 'bitcoin', 'btc', 'ethereum', 'eth'];
-    const hasStockIntent = stockKeywords.some(keyword => lowerQuery.includes(keyword));
+    // Check for comparison intent
+    const comparisonKeywords = ['compare', 'vs', 'versus', 'and'];
+    const hasComparisonIntent = comparisonKeywords.some(keyword => lowerQuery.includes(keyword));
     
-    if (hasStockIntent) {
-      // Extract potential symbol
-      const symbols = ['TSLA', 'AAPL', 'GOOGL', 'MSFT', 'AMZN', 'NVDA', 'BTC', 'ETH'];
-      const mentionedSymbol = symbols.find(symbol => 
-        lowerQuery.includes(symbol.toLowerCase()) || 
-        lowerQuery.includes(getCompanyName(symbol).toLowerCase())
-      );
-      
-      if (mentionedSymbol) {
-        return { type: 'chart', symbol: mentionedSymbol };
-      }
-      
-      // Default to S&P 500 if general market query
-      if (lowerQuery.includes('s&p') || lowerQuery.includes('sp500') || lowerQuery.includes('market')) {
-        return { type: 'chart', symbol: 'AAPL' }; // Using AAPL as proxy for market
-      }
+    // All stock symbols
+    const symbols = ['TSLA', 'AAPL', 'GOOGL', 'MSFT', 'AMZN', 'NVDA', 'JPM', 'V', 'WMT', 'BTC', 'ETH'];
+    
+    // Find all mentioned symbols
+    const mentionedSymbols = symbols.filter(symbol => 
+      lowerQuery.includes(symbol.toLowerCase()) || 
+      lowerQuery.includes(getCompanyName(symbol).toLowerCase())
+    );
+    
+    // If comparison intent and multiple symbols, return comparison
+    if (hasComparisonIntent && mentionedSymbols.length >= 2) {
+      return { type: 'comparison', symbols: mentionedSymbols.slice(0, 4) }; // Max 4 stocks
+    }
+    
+    // If multiple symbols without comparison keyword, still compare them
+    if (mentionedSymbols.length >= 2) {
+      return { type: 'comparison', symbols: mentionedSymbols.slice(0, 4) };
+    }
+    
+    // Check for single stock chart
+    const stockKeywords = ['stock', 'chart', 'price', 'show', 'display'];
+    const hasStockIntent = stockKeywords.some(keyword => lowerQuery.includes(keyword)) || mentionedSymbols.length > 0;
+    
+    if (hasStockIntent && mentionedSymbols.length === 1) {
+      return { type: 'chart', symbol: mentionedSymbols[0] };
+    }
+    
+    // Default to S&P 500 if general market query
+    if (lowerQuery.includes('s&p') || lowerQuery.includes('sp500') || lowerQuery.includes('market')) {
+      return { type: 'chart', symbol: 'AAPL' };
     }
     
     return { type: 'chat' };
@@ -81,6 +104,9 @@ export default function IntelligentChat() {
       'MSFT': 'Microsoft',
       'AMZN': 'Amazon',
       'NVDA': 'Nvidia',
+      'JPM': 'JPMorgan',
+      'V': 'Visa',
+      'WMT': 'Walmart',
       'BTC': 'Bitcoin',
       'ETH': 'Ethereum',
     };
@@ -100,6 +126,25 @@ export default function IntelligentChat() {
     const assistantMessageIndex = messages.length + 1;
 
     try {
+      // If comparison intent, fetch multiple stocks
+      if (intent.type === 'comparison' && intent.symbols) {
+        const response = await fetch('/api/markets');
+        const markets = await response.json();
+        const stocksData = intent.symbols
+          .map((sym: string) => markets.find((m: any) => m.symbol === sym))
+          .filter(Boolean);
+
+        if (stocksData.length >= 2) {
+          setMessages((prev) => [...prev, {
+            role: 'assistant',
+            content: `Here's a comparison of ${stocksData.map((s: any) => s.symbol).join(', ')}:`,
+            comparisonData: { stocks: stocksData },
+          }]);
+          setLoading(false);
+          return;
+        }
+      }
+      
       // If chart intent, fetch stock data and show chart
       if (intent.type === 'chart' && intent.symbol) {
         const response = await fetch('/api/markets');
@@ -209,23 +254,29 @@ export default function IntelligentChat() {
             <Sparkles size={20} className="text-gray-500" />
             <span className="text-sm font-medium text-gray-400">FinanceGPT</span>
           </div>
-          <div className="flex items-center gap-1">
-            <Link href="/markets" className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-900">
-              <TrendingUp size={14} className="inline mr-1.5" />
-              Markets
-            </Link>
-            <Link href="/screener" className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-900">
-              <BarChart3 size={14} className="inline mr-1.5" />
-              Screener
-            </Link>
-            <Link href="/calendar" className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-900">
-              <Calendar size={14} className="inline mr-1.5" />
-              Calendar
-            </Link>
-            <Link href="/news" className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-900">
-              <Newspaper size={14} className="inline mr-1.5" />
-              News
-            </Link>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1">
+              <Link href="/markets" className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-900">
+                <TrendingUp size={14} className="inline mr-1.5" />
+                Markets
+              </Link>
+              <Link href="/screener" className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-900">
+                <BarChart3 size={14} className="inline mr-1.5" />
+                Screener
+              </Link>
+              <Link href="/calendar" className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-900">
+                <Calendar size={14} className="inline mr-1.5" />
+                Calendar
+              </Link>
+              <Link href="/news" className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-900">
+                <Newspaper size={14} className="inline mr-1.5" />
+                News
+              </Link>
+            </div>
+            <button className="flex items-center gap-2 px-3 py-1.5 text-xs text-gray-300 bg-gray-900 hover:bg-gray-800 border border-gray-800 hover:border-gray-700 rounded-lg transition-colors">
+              <User size={14} />
+              Sign In
+            </button>
           </div>
         </div>
       </nav>
@@ -234,18 +285,18 @@ export default function IntelligentChat() {
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
         {messages.length === 0 ? (
           // Empty state - Perplexity style
-          <div className="w-full max-w-3xl space-y-8 animate-fade-in">
-            <div className="text-center space-y-3">
+          <div className="w-full max-w-3xl space-y-8 animate-fade-in" style={{ minHeight: '60vh' }}>
+            <div className="text-center space-y-3 pt-20">
               <h1 className="text-4xl font-medium text-gray-100">
                 What would you like to know?
               </h1>
               <p className="text-gray-500 text-sm">
-                Ask about stocks, markets, or financial news
+                Ask about stocks, compare companies, or get market insights
               </p>
             </div>
 
             {/* Suggested Prompts */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 max-w-2xl mx-auto">
               {SUGGESTED_PROMPTS.map((prompt, index) => (
                 <button
                   key={index}
@@ -282,9 +333,34 @@ export default function IntelligentChat() {
                       </p>
                     </div>
                     
-                    {/* Chart Display */}
+                    {/* Comparison Chart Display */}
+                    {message.comparisonData && (
+                      <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6 animate-slide-up">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-lg font-semibold text-gray-100">
+                            Stock Comparison
+                          </h3>
+                        </div>
+                        <div className="mb-6">
+                          <ComparisonChart stocks={message.comparisonData.stocks} />
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          {message.comparisonData.stocks.map((stock) => (
+                            <div key={stock.symbol} className="bg-gray-800/50 border border-gray-700 rounded-lg p-3">
+                              <div className="text-xs text-gray-500 mb-1">{stock.name}</div>
+                              <div className="text-lg font-bold text-gray-100">${stock.price.toFixed(2)}</div>
+                              <div className={`text-xs ${stock.change24h >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                {stock.change24h >= 0 ? '+' : ''}{stock.change24h.toFixed(2)}%
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Single Chart Display */}
                     {message.chartData && (
-                      <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6">
+                      <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6 animate-slide-up">
                         <div className="flex items-center justify-between mb-4">
                           <div>
                             <h3 className="text-lg font-semibold text-gray-100">
@@ -333,7 +409,16 @@ export default function IntelligentChat() {
 
         {/* Input Area - Fixed at bottom */}
         <div className={`${messages.length > 0 ? 'fixed' : ''} bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black to-transparent pt-8 pb-6 px-6`}>
-          <div className="max-w-3xl mx-auto">
+          <div className="max-w-3xl mx-auto space-y-3">
+            {/* Model Selector */}
+            <div className="flex items-center justify-between">
+              <button className="flex items-center gap-2 px-3 py-1.5 text-xs text-gray-500 hover:text-gray-300 bg-gray-900/50 hover:bg-gray-900 border border-gray-800 rounded-lg transition-colors">
+                <Sparkles size={12} />
+                <span>GPT-4</span>
+                <ChevronDown size={12} />
+              </button>
+            </div>
+            
             <form onSubmit={handleSubmit} className="relative">
               <input
                 ref={inputRef}
@@ -342,17 +427,26 @@ export default function IntelligentChat() {
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Ask anything about finance..."
                 disabled={loading}
-                className="w-full bg-gray-900 border border-gray-800 rounded-2xl px-6 py-4 pr-14 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-gray-700 transition-colors disabled:opacity-50"
+                className="w-full bg-gray-900 border border-gray-800 rounded-2xl px-6 py-4 pr-28 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-gray-700 transition-colors disabled:opacity-50"
               />
-              <button
-                type="submit"
-                disabled={!input.trim() || loading}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-2.5 bg-gray-800 hover:bg-gray-700 disabled:bg-gray-900 disabled:cursor-not-allowed rounded-xl transition-colors"
-              >
-                <Send size={16} className="text-gray-400" />
-              </button>
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                <button
+                  type="button"
+                  className="p-2.5 text-gray-500 hover:text-gray-300 hover:bg-gray-800 rounded-xl transition-colors"
+                  title="Voice input (coming soon)"
+                >
+                  <Mic size={16} />
+                </button>
+                <button
+                  type="submit"
+                  disabled={!input.trim() || loading}
+                  className="p-2.5 bg-gray-800 hover:bg-gray-700 disabled:bg-gray-900 disabled:cursor-not-allowed rounded-xl transition-colors"
+                >
+                  <Send size={16} className="text-gray-400" />
+                </button>
+              </div>
             </form>
-            <p className="text-xs text-gray-600 text-center mt-3">
+            <p className="text-xs text-gray-600 text-center">
               AI can make mistakes. Verify important information.
             </p>
           </div>
@@ -370,8 +464,21 @@ export default function IntelligentChat() {
             transform: translateY(0);
           }
         }
+        @keyframes slide-up {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
         .animate-fade-in {
           animation: fade-in 0.4s ease-out;
+        }
+        .animate-slide-up {
+          animation: slide-up 0.5s ease-out;
         }
       `}</style>
     </div>
