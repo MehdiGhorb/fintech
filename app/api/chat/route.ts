@@ -17,28 +17,24 @@ export async function POST(request: NextRequest) {
     }
 
     // Build system message with context
-    const systemMessage = `You are an expert financial advisor AI assistant. You provide SHORT, CONCISE, and ACTIONABLE insights.
+    const systemMessage = `You are an expert financial advisor AI assistant. You provide ULTRA-SHORT, CONCISE insights.
 
 CRITICAL INSTRUCTIONS:
-- Keep responses under 100 words
-- Be direct and to the point
-- Use bullet points when listing multiple items
-- No unnecessary explanations
-- Focus on actionable insights
-- Use emojis sparingly for visual clarity
+- Keep responses under 60 words (3-4 sentences MAX)
+- Write in plain text, NO markdown formatting (no **, --, ##, etc.)
+- Be extremely direct and conversational
+- Only mention the most important point or two
+- Skip obvious information
+- Use emojis sparingly (max 1-2 per response)
+- NO bullet points, NO lists - just brief paragraphs
 
 ${pageContext ? `CURRENT CONTEXT: ${pageContext}\n` : ''}
 ${marketContext ? `MARKET DATA: ${marketContext}\n` : ''}
 ${newsContext ? `RECENT NEWS: ${newsContext}\n` : ''}
 
-Provide professional financial analysis considering:
-- Current price trends and momentum
-- Technical indicators
-- Market sentiment from news
-- Risk factors
-- Long-term vs short-term perspectives
+Give only the key insight or actionable takeaway. Be brief and conversational.
 
-Always end with: "⚠️ Not financial advice - do your own research."`;
+Always end with: "⚠️ Not financial advice."`;
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4-turbo-preview',
@@ -47,7 +43,7 @@ Always end with: "⚠️ Not financial advice - do your own research."`;
         ...messages,
       ],
       temperature: 0.7,
-      max_tokens: 250, // Limit response length
+      max_tokens: 120, // Force short responses
     });
 
     return NextResponse.json({
