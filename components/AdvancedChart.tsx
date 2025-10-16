@@ -18,15 +18,59 @@ interface AdvancedChartProps {
   symbol: string;
 }
 
+type Timeframe = '1D' | '1W' | '1M' | '3M' | '6M' | '1Y' | 'ALL';
+
 export default function AdvancedChart({ data, symbol }: AdvancedChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const [chartType, setChartType] = useState<'candlestick' | 'line' | 'area'>('candlestick');
   const [showVolume, setShowVolume] = useState(true);
   const [showMA, setShowMA] = useState(true);
+  const [timeframe, setTimeframe] = useState<Timeframe>('1M');
+
+  // Filter data based on timeframe
+  const getFilteredData = () => {
+    if (!data || data.length === 0) return [];
+    
+    const now = new Date();
+    const getDaysAgo = (days: number) => {
+      const date = new Date(now);
+      date.setDate(date.getDate() - days);
+      return date.toISOString().split('T')[0];
+    };
+
+    let cutoffDate: string;
+    switch (timeframe) {
+      case '1D':
+        cutoffDate = getDaysAgo(1);
+        break;
+      case '1W':
+        cutoffDate = getDaysAgo(7);
+        break;
+      case '1M':
+        cutoffDate = getDaysAgo(30);
+        break;
+      case '3M':
+        cutoffDate = getDaysAgo(90);
+        break;
+      case '6M':
+        cutoffDate = getDaysAgo(180);
+        break;
+      case '1Y':
+        cutoffDate = getDaysAgo(365);
+        break;
+      case 'ALL':
+      default:
+        return data;
+    }
+
+    return data.filter(d => d.time >= cutoffDate);
+  };
+
+  const filteredData = getFilteredData();
 
   useEffect(() => {
-    if (!chartContainerRef.current || !data || data.length === 0) return;
+    if (!chartContainerRef.current || !filteredData || filteredData.length === 0) return;
 
     const chart = createChart(chartContainerRef.current, {
       layout: {
@@ -71,7 +115,7 @@ export default function AdvancedChart({ data, symbol }: AdvancedChartProps) {
     chartRef.current = chart;
 
     // Prepare candlestick data (data already in correct format from API)
-    const candleData = data.map(d => ({
+    const candleData = filteredData.map(d => ({
       time: d.time,
       open: d.open,
       high: d.high,
@@ -79,7 +123,7 @@ export default function AdvancedChart({ data, symbol }: AdvancedChartProps) {
       close: d.close,
     }));
 
-    const lineData = data.map(d => ({
+    const lineData = filteredData.map(d => ({
       time: d.time,
       value: d.close, // Use close price for line chart
     }));
@@ -150,8 +194,8 @@ export default function AdvancedChart({ data, symbol }: AdvancedChartProps) {
         },
       });
 
-      const volumeData = data.map((d, i) => {
-        const prevClose = i > 0 ? data[i - 1].close : d.close;
+      const volumeData = filteredData.map((d, i) => {
+        const prevClose = i > 0 ? filteredData[i - 1].close : d.close;
         return {
           time: d.time,
           value: d.volume,
@@ -178,7 +222,7 @@ export default function AdvancedChart({ data, symbol }: AdvancedChartProps) {
       window.removeEventListener('resize', handleResize);
       chart.remove();
     };
-  }, [data, chartType, showVolume, showMA]);
+  }, [filteredData, chartType, showVolume, showMA, timeframe]);
 
   const calculateMA = (data: any[], period: number) => {
     const result = [];
@@ -192,79 +236,98 @@ export default function AdvancedChart({ data, symbol }: AdvancedChartProps) {
     return result;
   };
 
-  const priceChange = data.length > 1 ? data[data.length - 1].close - data[0].close : 0;
-  const priceChangePercent = data.length > 1 ? (priceChange / data[0].close) * 100 : 0;
+  const priceChange = filteredData.length > 1 ? filteredData[filteredData.length - 1].close - filteredData[0].close : 0;
+  const priceChangePercent = filteredData.length > 1 ? (priceChange / filteredData[0].close) * 100 : 0;
 
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
       {/* Chart Header */}
-      <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <h3 className="text-lg font-semibold">{symbol}</h3>
+      <div className="px-6 py-4 border-b border-gray-800">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-4">
+            <h3 className="text-lg font-semibold">{symbol}</h3>
+            <div className="flex items-center gap-2">
+              <span className="text-2xl font-bold">
+                ${data.length > 0 ? data[data.length - 1].close.toFixed(2) : '0.00'}
+              </span>
+              <div className={`flex items-center gap-1 text-sm font-medium ${
+                priceChangePercent >= 0 ? 'text-green-400' : 'text-red-400'
+              }`}>
+                {priceChangePercent >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
+                <span>{priceChangePercent >= 0 ? '+' : ''}{priceChangePercent.toFixed(2)}%</span>
+              </div>
+            </div>
+          </div>
+
           <div className="flex items-center gap-2">
-            <span className="text-2xl font-bold">
-              ${data.length > 0 ? data[data.length - 1].close.toFixed(2) : '0.00'}
-            </span>
-            <div className={`flex items-center gap-1 text-sm font-medium ${
-              priceChangePercent >= 0 ? 'text-green-400' : 'text-red-400'
-            }`}>
-              {priceChangePercent >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
-              <span>{priceChangePercent >= 0 ? '+' : ''}{priceChangePercent.toFixed(2)}%</span>
+            {/* Chart Type Selector */}
+            <div className="flex gap-1 bg-gray-800 rounded-lg p-1">
+              <button
+                onClick={() => setChartType('candlestick')}
+                className={`p-2 rounded transition-colors ${
+                  chartType === 'candlestick' ? 'bg-blue-500 text-white' : 'text-gray-400 hover:text-white'
+                }`}
+                title="Candlestick"
+              >
+                <CandlestickChart size={18} />
+              </button>
+              <button
+                onClick={() => setChartType('line')}
+                className={`p-2 rounded transition-colors ${
+                  chartType === 'line' ? 'bg-blue-500 text-white' : 'text-gray-400 hover:text-white'
+                }`}
+                title="Line"
+              >
+                <LineChartIcon size={18} />
+              </button>
+              <button
+                onClick={() => setChartType('area')}
+                className={`p-2 rounded transition-colors ${
+                  chartType === 'area' ? 'bg-blue-500 text-white' : 'text-gray-400 hover:text-white'
+                }`}
+                title="Area"
+              >
+                <BarChart3 size={18} />
+              </button>
+            </div>
+
+            {/* Indicators */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowMA(!showMA)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  showMA ? 'bg-blue-500 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
+                }`}
+              >
+                MA
+              </button>
+              <button
+                onClick={() => setShowVolume(!showVolume)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  showVolume ? 'bg-blue-500 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
+                }`}
+              >
+                Vol
+              </button>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Chart Type Selector */}
-          <div className="flex gap-1 bg-gray-800 rounded-lg p-1">
+        {/* Timeframe Selector */}
+        <div className="flex gap-2">
+          {(['1D', '1W', '1M', '3M', '6M', '1Y', 'ALL'] as Timeframe[]).map((tf) => (
             <button
-              onClick={() => setChartType('candlestick')}
-              className={`p-2 rounded transition-colors ${
-                chartType === 'candlestick' ? 'bg-blue-500 text-white' : 'text-gray-400 hover:text-white'
-              }`}
-              title="Candlestick"
-            >
-              <CandlestickChart size={18} />
-            </button>
-            <button
-              onClick={() => setChartType('line')}
-              className={`p-2 rounded transition-colors ${
-                chartType === 'line' ? 'bg-blue-500 text-white' : 'text-gray-400 hover:text-white'
-              }`}
-              title="Line"
-            >
-              <LineChartIcon size={18} />
-            </button>
-            <button
-              onClick={() => setChartType('area')}
-              className={`p-2 rounded transition-colors ${
-                chartType === 'area' ? 'bg-blue-500 text-white' : 'text-gray-400 hover:text-white'
-              }`}
-              title="Area"
-            >
-              <BarChart3 size={18} />
-            </button>
-          </div>
-
-          {/* Indicators */}
-          <div className="flex gap-2">
-            <button
-              onClick={() => setShowMA(!showMA)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                showMA ? 'bg-blue-500 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
+              key={tf}
+              onClick={() => setTimeframe(tf)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                timeframe === tf
+                  ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/50'
+                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
               }`}
             >
-              MA
+              {tf}
             </button>
-            <button
-              onClick={() => setShowVolume(!showVolume)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                showVolume ? 'bg-blue-500 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
-              }`}
-            >
-              Vol
-            </button>
-          </div>
+          ))}
         </div>
       </div>
 
