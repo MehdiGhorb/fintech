@@ -3,9 +3,10 @@ import "./globals.css";
 import Navigation from "@/components/Navigation";
 import MarketOverview from "@/components/MarketOverview";
 import { ChatbotProvider, MainContent } from "@/components/ChatbotContext";
+import ConditionalLayout from "@/components/ConditionalLayout";
 
 export const metadata: Metadata = {
-  title: "FinTech Analysis | Markets, News & AI Insights",
+  title: "FinanceGPT | AI-Powered Financial Intelligence",
   description: "Real-time financial analysis with AI-powered insights, market data, and news",
 };
 
@@ -18,13 +19,9 @@ export default function RootLayout({
     <html lang="en">
       <body className="antialiased">
         <ChatbotProvider>
-          <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900">
-            <Navigation />
-            <MarketOverview />
-            <MainContent>
-              {children}
-            </MainContent>
-          </div>
+          <ConditionalLayout>
+            {children}
+          </ConditionalLayout>
         </ChatbotProvider>
       </body>
     </html>
