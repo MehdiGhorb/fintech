@@ -29,12 +29,7 @@ const SUGGESTED_PROMPTS = [
 export default function AssistantPanel({ context }: AssistantPanelProps) {
   const { isChatbotOpen, setIsChatbotOpen } = useChatbot();
   const [isMinimized, setIsMinimized] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: 'assistant',
-      content: '👋 Hi! I\'m your AI financial assistant. I can help you with market analysis, investment insights, and financial questions. How can I assist you today?',
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
@@ -308,7 +303,7 @@ export default function AssistantPanel({ context }: AssistantPanelProps) {
       </div>
 
       {/* Suggested Prompts - Show only when no messages */}
-      {messages.length === 1 && (
+      {messages.length === 0 && (
         <div className="px-4 pb-3 space-y-2">
           <p className="text-xs text-gray-500 mb-2">Suggested questions:</p>
           <div className="grid grid-cols-2 gap-2">

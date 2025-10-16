@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Send, Loader2, TrendingUp, Newspaper, Calendar, BarChart3, Sparkles, Mic, ChevronDown, User } from 'lucide-react';
+import { Send, Loader2, TrendingUp, Newspaper, Calendar, BarChart3, Sparkles, Mic } from 'lucide-react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 
@@ -254,61 +254,95 @@ export default function IntelligentChat() {
             <Sparkles size={20} className="text-gray-500" />
             <span className="text-sm font-medium text-gray-400">FinanceGPT</span>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1">
-              <Link href="/markets" className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-900">
-                <TrendingUp size={14} className="inline mr-1.5" />
-                Markets
-              </Link>
-              <Link href="/screener" className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-900">
-                <BarChart3 size={14} className="inline mr-1.5" />
-                Screener
-              </Link>
-              <Link href="/calendar" className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-900">
-                <Calendar size={14} className="inline mr-1.5" />
-                Calendar
-              </Link>
-              <Link href="/news" className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-900">
-                <Newspaper size={14} className="inline mr-1.5" />
-                News
-              </Link>
-            </div>
-            <button className="flex items-center gap-2 px-3 py-1.5 text-xs text-gray-300 bg-gray-900 hover:bg-gray-800 border border-gray-800 hover:border-gray-700 rounded-lg transition-colors">
-              <User size={14} />
-              Sign In
-            </button>
+          <div className="flex items-center gap-1">
+            <Link href="/markets" className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-900">
+              <TrendingUp size={14} className="inline mr-1.5" />
+              Markets
+            </Link>
+            <Link href="/screener" className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-900">
+              <BarChart3 size={14} className="inline mr-1.5" />
+              Screener
+            </Link>
+            <Link href="/calendar" className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-900">
+              <Calendar size={14} className="inline mr-1.5" />
+              Calendar
+            </Link>
+            <Link href="/news" className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-900">
+              <Newspaper size={14} className="inline mr-1.5" />
+              News
+            </Link>
           </div>
         </div>
       </nav>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
+      <div className="flex-1 flex flex-col items-center px-6 py-8">
         {messages.length === 0 ? (
           // Empty state - Perplexity style
-          <div className="w-full max-w-3xl space-y-8 animate-fade-in" style={{ minHeight: '60vh' }}>
-            <div className="text-center space-y-3 pt-20">
-              <h1 className="text-4xl font-medium text-gray-100">
-                What would you like to know?
+          <div className="w-full max-w-3xl flex flex-col items-center justify-center flex-1 animate-fade-in">
+            <div className="text-center space-y-4 mb-12">
+              <h1 className="text-5xl md:text-6xl font-light text-gray-100 tracking-tight">
+                Where knowledge begins
               </h1>
-              <p className="text-gray-500 text-sm">
-                Ask about stocks, compare companies, or get market insights
+              <p className="text-gray-500 text-base">
+                Ask anything about financial markets
               </p>
             </div>
 
             {/* Suggested Prompts */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 max-w-2xl mx-auto">
+            <div className="w-full grid grid-cols-1 md:grid-cols-3 gap-3 mb-8">
               {SUGGESTED_PROMPTS.map((prompt, index) => (
                 <button
                   key={index}
                   onClick={() => handlePromptClick(prompt)}
-                  className="p-4 text-left bg-gray-900/50 border border-gray-800 hover:border-gray-700 rounded-xl transition-all text-sm text-gray-300 hover:text-gray-100 group"
+                  className="p-4 text-left bg-gray-900/30 border border-gray-800/50 hover:border-gray-700 hover:bg-gray-900/50 rounded-xl transition-all text-sm text-gray-400 hover:text-gray-200 group"
                 >
-                  <div className="text-gray-500 group-hover:text-gray-400 transition-colors text-xs mb-1">
-                    Try asking:
+                  <div className="text-gray-600 group-hover:text-gray-500 transition-colors text-xs mb-1.5 font-medium">
+                    Try this:
                   </div>
-                  {prompt}
+                  <div className="text-gray-300 group-hover:text-gray-100">
+                    {prompt}
+                  </div>
                 </button>
               ))}
+            </div>
+
+            {/* Input Box - Centered */}
+            <div className="w-full max-w-2xl">
+              <form onSubmit={handleSubmit} className="relative">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="Ask anything..."
+                  disabled={loading}
+                  className="w-full bg-gray-900/50 border border-gray-800 rounded-full px-6 py-4 pr-32 text-base text-gray-100 placeholder-gray-600 focus:outline-none focus:border-gray-700 focus:bg-gray-900 transition-all disabled:opacity-50 shadow-2xl"
+                />
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    className="p-2.5 text-gray-500 hover:text-gray-300 hover:bg-gray-800 rounded-full transition-colors"
+                    title="Voice input (coming soon)"
+                  >
+                    <Mic size={18} />
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!input.trim() || loading}
+                    className="p-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-800 disabled:cursor-not-allowed rounded-full transition-colors shadow-lg disabled:shadow-none"
+                  >
+                    {loading ? (
+                      <Loader2 size={18} className="text-white animate-spin" />
+                    ) : (
+                      <Send size={18} className="text-white" />
+                    )}
+                  </button>
+                </div>
+              </form>
+              <p className="text-xs text-gray-600 text-center mt-4">
+                AI-powered financial insights. Verify important information.
+              </p>
             </div>
           </div>
         ) : (
@@ -407,50 +441,47 @@ export default function IntelligentChat() {
           </div>
         )}
 
-        {/* Input Area - Fixed at bottom */}
-        <div className={`${messages.length > 0 ? 'fixed' : ''} bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black to-transparent pt-8 pb-6 px-6`}>
-          <div className="max-w-3xl mx-auto space-y-3">
-            {/* Model Selector */}
-            <div className="flex items-center justify-between">
-              <button className="flex items-center gap-2 px-3 py-1.5 text-xs text-gray-500 hover:text-gray-300 bg-gray-900/50 hover:bg-gray-900 border border-gray-800 rounded-lg transition-colors">
-                <Sparkles size={12} />
-                <span>GPT-4</span>
-                <ChevronDown size={12} />
-              </button>
+        {/* Input Area - Only show when there are messages */}
+        {messages.length > 0 && (
+          <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black to-transparent pt-8 pb-6 px-6">
+            <div className="max-w-3xl mx-auto">
+              <form onSubmit={handleSubmit} className="relative">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="Ask a follow up..."
+                  disabled={loading}
+                  className="w-full bg-gray-900/50 border border-gray-800 rounded-full px-6 py-4 pr-32 text-base text-gray-100 placeholder-gray-600 focus:outline-none focus:border-gray-700 focus:bg-gray-900 transition-all disabled:opacity-50 shadow-2xl"
+                />
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    className="p-2.5 text-gray-500 hover:text-gray-300 hover:bg-gray-800 rounded-full transition-colors"
+                    title="Voice input (coming soon)"
+                  >
+                    <Mic size={18} />
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!input.trim() || loading}
+                    className="p-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-800 disabled:cursor-not-allowed rounded-full transition-colors shadow-lg disabled:shadow-none"
+                  >
+                    {loading ? (
+                      <Loader2 size={18} className="text-white animate-spin" />
+                    ) : (
+                      <Send size={18} className="text-white" />
+                    )}
+                  </button>
+                </div>
+              </form>
+              <p className="text-xs text-gray-600 text-center mt-4">
+                AI-powered financial insights. Verify important information.
+              </p>
             </div>
-            
-            <form onSubmit={handleSubmit} className="relative">
-              <input
-                ref={inputRef}
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask anything about finance..."
-                disabled={loading}
-                className="w-full bg-gray-900 border border-gray-800 rounded-2xl px-6 py-4 pr-28 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-gray-700 transition-colors disabled:opacity-50"
-              />
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                <button
-                  type="button"
-                  className="p-2.5 text-gray-500 hover:text-gray-300 hover:bg-gray-800 rounded-xl transition-colors"
-                  title="Voice input (coming soon)"
-                >
-                  <Mic size={16} />
-                </button>
-                <button
-                  type="submit"
-                  disabled={!input.trim() || loading}
-                  className="p-2.5 bg-gray-800 hover:bg-gray-700 disabled:bg-gray-900 disabled:cursor-not-allowed rounded-xl transition-colors"
-                >
-                  <Send size={16} className="text-gray-400" />
-                </button>
-              </div>
-            </form>
-            <p className="text-xs text-gray-600 text-center">
-              AI can make mistakes. Verify important information.
-            </p>
           </div>
-        </div>
+        )}
       </div>
 
       <style jsx>{`
