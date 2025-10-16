@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Send, Loader2, X, MessageSquare, Minimize2 } from 'lucide-react';
+import { Send, Loader2, X, Sparkles, Minimize2 } from 'lucide-react';
+import { useChatbot } from './ChatbotContext';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -18,7 +19,7 @@ interface AssistantPanelProps {
 }
 
 export default function AssistantPanel({ context }: AssistantPanelProps) {
-  const [isOpen, setIsOpen] = useState(true);
+  const { isChatbotOpen, setIsChatbotOpen } = useChatbot();
   const [isMinimized, setIsMinimized] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -116,13 +117,13 @@ export default function AssistantPanel({ context }: AssistantPanelProps) {
     { label: '📰 News impact?', query: 'How is recent news affecting markets?' },
   ];
 
-  if (!isOpen) {
+  if (!isChatbotOpen) {
     return (
       <button
-        onClick={() => setIsOpen(true)}
-        className="fixed right-6 bottom-6 bg-blue-500 hover:bg-blue-600 text-white p-4 rounded-full shadow-lg transition-all z-50"
+        onClick={() => setIsChatbotOpen(true)}
+        className="fixed right-6 bottom-6 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white p-4 rounded-full shadow-lg hover:shadow-2xl transition-all z-50 group"
       >
-        <MessageSquare size={24} />
+        <Sparkles size={24} className="group-hover:rotate-12 transition-transform" />
       </button>
     );
   }
@@ -132,7 +133,7 @@ export default function AssistantPanel({ context }: AssistantPanelProps) {
       <div className="fixed right-6 bottom-6 bg-gray-900 border border-gray-700 rounded-lg shadow-xl z-50">
         <div className="flex items-center justify-between p-4 w-64">
           <div className="flex items-center gap-2">
-            <MessageSquare size={18} className="text-blue-400" />
+            <Sparkles size={18} className="text-blue-400" />
             <span className="font-medium text-sm">AI Assistant</span>
           </div>
           <div className="flex gap-2">
@@ -140,10 +141,10 @@ export default function AssistantPanel({ context }: AssistantPanelProps) {
               onClick={() => setIsMinimized(false)}
               className="text-gray-400 hover:text-white transition-colors"
             >
-              <MessageSquare size={18} />
+              <Sparkles size={18} />
             </button>
             <button
-              onClick={() => setIsOpen(false)}
+              onClick={() => setIsChatbotOpen(false)}
               className="text-gray-400 hover:text-white transition-colors"
             >
               <X size={18} />
@@ -157,10 +158,11 @@ export default function AssistantPanel({ context }: AssistantPanelProps) {
   return (
     <div className="fixed right-0 top-16 bottom-0 w-full lg:w-96 bg-gray-900/95 backdrop-blur-sm border-l border-gray-700 shadow-2xl z-40 flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-700">
+      <div className="flex items-center justify-between p-4 border-b border-gray-700 bg-gradient-to-r from-blue-500/10 to-purple-500/10">
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+          <Sparkles size={18} className="text-blue-400" />
           <h3 className="font-semibold text-sm">AI Assistant</h3>
+          <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
         </div>
         <div className="flex gap-2">
           <button
@@ -171,7 +173,7 @@ export default function AssistantPanel({ context }: AssistantPanelProps) {
             <Minimize2 size={16} />
           </button>
           <button
-            onClick={() => setIsOpen(false)}
+            onClick={() => setIsChatbotOpen(false)}
             className="text-gray-400 hover:text-white transition-colors p-1"
             title="Close"
           >

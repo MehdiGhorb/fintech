@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { TrendingUp, Newspaper } from 'lucide-react';
+import { TrendingUp, Newspaper, Filter, GitCompare, Calendar } from 'lucide-react';
 
 export default function Navigation() {
   const pathname = usePathname();
@@ -17,7 +17,7 @@ export default function Navigation() {
             FinTech
           </Link>
 
-          <div className="flex gap-6">
+          <div className="flex gap-4">
             <Link
               href="/markets"
               className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
@@ -28,6 +28,42 @@ export default function Navigation() {
             >
               <TrendingUp size={20} />
               <span>Markets</span>
+            </Link>
+
+            <Link
+              href="/screener"
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+                isActive('/screener')
+                  ? 'bg-green-500/20 text-green-400'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-800'
+              }`}
+            >
+              <Filter size={20} />
+              <span>Screener</span>
+            </Link>
+
+            <Link
+              href="/compare"
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+                isActive('/compare')
+                  ? 'bg-amber-500/20 text-amber-400'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-800'
+              }`}
+            >
+              <GitCompare size={20} />
+              <span>Compare</span>
+            </Link>
+
+            <Link
+              href="/calendar"
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+                isActive('/calendar')
+                  ? 'bg-pink-500/20 text-pink-400'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-800'
+              }`}
+            >
+              <Calendar size={20} />
+              <span>Calendar</span>
             </Link>
 
             <Link

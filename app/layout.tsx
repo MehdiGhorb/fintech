@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Navigation from "@/components/Navigation";
+import MarketOverview from "@/components/MarketOverview";
+import { ChatbotProvider, MainContent } from "@/components/ChatbotContext";
 
 export const metadata: Metadata = {
   title: "FinTech Analysis | Markets, News & AI Insights",
@@ -15,12 +17,15 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased">
-        <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900">
-          <Navigation />
-          <main className="pt-16 lg:pr-96">
-            {children}
-          </main>
-        </div>
+        <ChatbotProvider>
+          <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900">
+            <Navigation />
+            <MarketOverview />
+            <MainContent>
+              {children}
+            </MainContent>
+          </div>
+        </ChatbotProvider>
       </body>
     </html>
   );

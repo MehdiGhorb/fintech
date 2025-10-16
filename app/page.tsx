@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import MarketsDashboard from '@/components/MarketsDashboard';
+import MarketHighlights from '@/components/MarketHighlights';
 import AssistantPanel from '@/components/AssistantPanel';
 
 export default function Home() {
@@ -14,6 +15,9 @@ export default function Home() {
             Real-time market data, comprehensive charts, AI-powered insights, and latest financial news
           </p>
         </div>
+
+        {/* Market Highlights - Top Gainers/Losers & Today's Events */}
+        <MarketHighlights />
 
         <MarketsDashboard />
 
