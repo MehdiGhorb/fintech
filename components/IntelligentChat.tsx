@@ -54,63 +54,65 @@ export default function IntelligentChat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const detectIntent = (query: string) => {
-    const lowerQuery = query.toLowerCase();
-    
-    // Check for comparison intent
-    const comparisonKeywords = ['compare', 'vs', 'versus', 'and'];
-    const hasComparisonIntent = comparisonKeywords.some(keyword => lowerQuery.includes(keyword));
-    
-    // All stock symbols
-    const symbols = ['TSLA', 'AAPL', 'GOOGL', 'MSFT', 'AMZN', 'NVDA', 'JPM', 'V', 'WMT', 'BTC', 'ETH'];
-    
-    // Find all mentioned symbols
-    const mentionedSymbols = symbols.filter(symbol => 
-      lowerQuery.includes(symbol.toLowerCase()) || 
-      lowerQuery.includes(getCompanyName(symbol).toLowerCase())
-    );
-    
-    // If comparison intent and multiple symbols, return comparison
-    if (hasComparisonIntent && mentionedSymbols.length >= 2) {
-      return { type: 'comparison', symbols: mentionedSymbols.slice(0, 4) }; // Max 4 stocks
-    }
-    
-    // If multiple symbols without comparison keyword, still compare them
-    if (mentionedSymbols.length >= 2) {
-      return { type: 'comparison', symbols: mentionedSymbols.slice(0, 4) };
-    }
-    
-    // Check for single stock chart
-    const stockKeywords = ['stock', 'chart', 'price', 'show', 'display'];
-    const hasStockIntent = stockKeywords.some(keyword => lowerQuery.includes(keyword)) || mentionedSymbols.length > 0;
-    
-    if (hasStockIntent && mentionedSymbols.length === 1) {
-      return { type: 'chart', symbol: mentionedSymbols[0] };
-    }
-    
-    // Default to S&P 500 if general market query
-    if (lowerQuery.includes('s&p') || lowerQuery.includes('sp500') || lowerQuery.includes('market')) {
-      return { type: 'chart', symbol: 'AAPL' };
-    }
-    
-    return { type: 'chat' };
-  };
+  // Execute tool calls requested by AI
+  const executeToolCall = async (toolCall: any) => {
+    const functionName = toolCall.function.name;
+    const args = JSON.parse(toolCall.function.arguments);
 
-  const getCompanyName = (symbol: string) => {
-    const names: Record<string, string> = {
-      'TSLA': 'Tesla',
-      'AAPL': 'Apple',
-      'GOOGL': 'Google',
-      'MSFT': 'Microsoft',
-      'AMZN': 'Amazon',
-      'NVDA': 'Nvidia',
-      'JPM': 'JPMorgan',
-      'V': 'Visa',
-      'WMT': 'Walmart',
-      'BTC': 'Bitcoin',
-      'ETH': 'Ethereum',
-    };
-    return names[symbol] || symbol;
+    switch (functionName) {
+      case 'show_stock_chart': {
+        const response = await fetch('/api/markets');
+        const markets = await response.json();
+        const stockData = markets.find((m: any) => m.symbol === args.symbol.toUpperCase());
+        
+        if (stockData) {
+          return {
+            type: 'chart',
+            data: stockData,
+          };
+        }
+        return { type: 'error', message: `Could not find data for ${args.symbol}` };
+      }
+
+      case 'compare_stocks': {
+        const response = await fetch('/api/markets');
+        const markets = await response.json();
+        const stocksData = args.symbols
+          .map((sym: string) => markets.find((m: any) => m.symbol === sym.toUpperCase()))
+          .filter(Boolean);
+
+        if (stocksData.length >= 2) {
+          return {
+            type: 'comparison',
+            data: stocksData,
+          };
+        }
+        return { type: 'error', message: 'Could not find enough stocks to compare' };
+      }
+
+      case 'get_market_data': {
+        const response = await fetch('/api/markets');
+        const markets = await response.json();
+        
+        if (args.symbols && args.symbols.length > 0) {
+          const filtered = markets.filter((m: any) => 
+            args.symbols.map((s: string) => s.toUpperCase()).includes(m.symbol)
+          );
+          return { type: 'data', data: filtered };
+        }
+        
+        return { type: 'data', data: markets.slice(0, 10) };
+      }
+
+      case 'get_news': {
+        const response = await fetch('/api/news');
+        const news = await response.json();
+        return { type: 'data', data: news.slice(0, 5) };
+      }
+
+      default:
+        return { type: 'error', message: 'Unknown tool' };
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent, promptText?: string) => {
@@ -122,74 +124,19 @@ export default function IntelligentChat() {
     setMessages((prev) => [...prev, { role: 'user', content: userMessage }]);
     setLoading(true);
 
-    const intent = detectIntent(userMessage);
-    const assistantMessageIndex = messages.length + 1;
-
     try {
-      // If comparison intent, fetch multiple stocks
-      if (intent.type === 'comparison' && intent.symbols) {
-        const response = await fetch('/api/markets');
-        const markets = await response.json();
-        const stocksData = intent.symbols
-          .map((sym: string) => markets.find((m: any) => m.symbol === sym))
-          .filter(Boolean);
-
-        if (stocksData.length >= 2) {
-          setMessages((prev) => [...prev, {
-            role: 'assistant',
-            content: `Here's a comparison of ${stocksData.map((s: any) => s.symbol).join(', ')}:`,
-            comparisonData: { stocks: stocksData },
-          }]);
-          setLoading(false);
-          return;
-        }
-      }
-      
-      // If chart intent, fetch stock data and show chart
-      if (intent.type === 'chart' && intent.symbol) {
-        const response = await fetch('/api/markets');
-        const markets = await response.json();
-        const stockData = markets.find((m: any) => m.symbol === intent.symbol);
-
-        if (stockData) {
-          // Add message with chart
-          setMessages((prev) => [...prev, {
-            role: 'assistant',
-            content: `Here's the ${getCompanyName(intent.symbol!)} (${intent.symbol}) chart:`,
-            chartData: stockData,
-          }]);
-          setLoading(false);
-          return;
-        }
-      }
-
-      // Otherwise, use AI chat
+      // Add streaming placeholder
       setMessages((prev) => [...prev, { role: 'assistant', content: '', isStreaming: true }]);
 
-      const [marketsRes, newsRes] = await Promise.all([
-        fetch('/api/markets'),
-        fetch('/api/news'),
-      ]);
-      const markets = await marketsRes.json();
-      const news = await newsRes.json();
-
-      const marketContext = markets
-        .slice(0, 10)
-        .map((asset: any) => `${asset.symbol}: $${asset.price} (${asset.change24h >= 0 ? '+' : ''}${asset.change24h.toFixed(2)}%)`)
-        .join(', ');
-
-      const newsContext = news
-        .slice(0, 5)
-        .map((article: any) => article.title)
-        .join('; ');
-
+      // Call AI with conversation history
       const response = await fetch('/api/intelligent-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messages: messages.slice(-6),
-          marketContext,
-          newsContext,
+          messages: [
+            ...messages.slice(-6).map(m => ({ role: m.role, content: m.content })),
+            { role: 'user', content: userMessage }
+          ],
         }),
       });
 
@@ -198,15 +145,87 @@ export default function IntelligentChat() {
       if (data.error) {
         setMessages((prev) => {
           const newMessages = [...prev];
-          newMessages[assistantMessageIndex] = {
+          newMessages[newMessages.length - 1] = {
             role: 'assistant',
             content: 'Sorry, I encountered an error. Please try again.',
             isStreaming: false,
           };
           return newMessages;
         });
-      } else {
-        // Streaming effect
+        setLoading(false);
+        return;
+      }
+
+      // Handle tool calls from AI
+      if (data.toolCalls && data.toolCalls.length > 0) {
+        // Execute all tool calls
+        const toolResults = await Promise.all(
+          data.toolCalls.map((toolCall: any) => executeToolCall(toolCall))
+        );
+
+        // Remove streaming placeholder
+        setMessages((prev) => prev.slice(0, -1));
+
+        // Add results
+        for (const result of toolResults) {
+          if (result.type === 'chart') {
+            setMessages((prev) => [...prev, {
+              role: 'assistant',
+              content: data.message || '',
+              chartData: result.data,
+              isStreaming: false,
+            }]);
+          } else if (result.type === 'comparison') {
+            setMessages((prev) => [...prev, {
+              role: 'assistant',
+              content: data.message || '',
+              comparisonData: { stocks: result.data },
+              isStreaming: false,
+            }]);
+          } else if (result.type === 'data') {
+            // AI requested data, make a follow-up call with the data
+            const formattedData = JSON.stringify(result.data).substring(0, 2000); // Limit size
+            
+            const followUpResponse = await fetch('/api/intelligent-chat', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                messages: [
+                  ...messages.slice(-6).map(m => ({ role: m.role, content: m.content })),
+                  { role: 'user', content: userMessage },
+                  { role: 'assistant', content: `I've retrieved the data: ${formattedData}. Now let me analyze it for you.` },
+                ],
+              }),
+            });
+
+            const followUpData = await followUpResponse.json();
+            
+            // Streaming effect for text response
+            if (followUpData.message) {
+              const fullResponse = followUpData.message;
+              let currentText = '';
+              const words = fullResponse.split(' ');
+
+              setMessages((prev) => [...prev, { role: 'assistant', content: '', isStreaming: true }]);
+
+              for (let i = 0; i < words.length; i++) {
+                currentText += (i > 0 ? ' ' : '') + words[i];
+                setMessages((prev) => {
+                  const newMessages = [...prev];
+                  newMessages[newMessages.length - 1] = {
+                    role: 'assistant',
+                    content: currentText,
+                    isStreaming: i < words.length - 1,
+                  };
+                  return newMessages;
+                });
+                await new Promise(resolve => setTimeout(resolve, Math.random() * 50 + 30));
+              }
+            }
+          }
+        }
+      } else if (data.message) {
+        // Simple text response with streaming effect
         const fullResponse = data.message;
         let currentText = '';
         const words = fullResponse.split(' ');
@@ -215,7 +234,7 @@ export default function IntelligentChat() {
           currentText += (i > 0 ? ' ' : '') + words[i];
           setMessages((prev) => {
             const newMessages = [...prev];
-            newMessages[assistantMessageIndex] = {
+            newMessages[newMessages.length - 1] = {
               role: 'assistant',
               content: currentText,
               isStreaming: i < words.length - 1,
@@ -229,7 +248,7 @@ export default function IntelligentChat() {
       console.error('Error:', error);
       setMessages((prev) => {
         const newMessages = [...prev];
-        newMessages[assistantMessageIndex] = {
+        newMessages[newMessages.length - 1] = {
           role: 'assistant',
           content: 'Sorry, something went wrong. Please try again.',
           isStreaming: false,
