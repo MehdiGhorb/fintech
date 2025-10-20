@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Send, Loader2, TrendingUp, Newspaper, Calendar, BarChart3, Sparkles, Mic } from 'lucide-react';
+import { Send, Loader2, TrendingUp, Newspaper, Calendar, BarChart3, Mic } from 'lucide-react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 
@@ -269,9 +269,8 @@ export default function IntelligentChat() {
       {/* Minimalistic Navigation */}
       <nav className="border-b border-gray-900 bg-black/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Sparkles size={20} className="text-gray-500" />
-            <span className="text-sm font-medium text-gray-400">FinanceGPT</span>
+          <div className="flex items-center gap-2" aria-label="Northline Finance">
+            <span className="text-sm font-medium text-gray-400">Northline Finance</span>
           </div>
           <div className="flex items-center gap-1">
             <Link href="/markets" className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-900">
