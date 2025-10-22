@@ -10,11 +10,16 @@ export default function ConditionalLayout({ children }: { children: React.ReactN
   const isHomePage = pathname === '/';
 
   if (isHomePage) {
-    // Homepage - just the intelligent chat, no navigation or layout
-    return <>{children}</>;
+    // Homepage - navigation + intelligent chat, no market overview
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900">
+        <Navigation />
+        {children}
+      </div>
+    );
   }
 
-  // Other pages - full layout with navigation
+  // Other pages - full layout with navigation and market overview
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900">
       <Navigation />
