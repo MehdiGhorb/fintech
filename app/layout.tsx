@@ -4,6 +4,7 @@ import Navigation from "@/components/Navigation";
 import MarketOverview from "@/components/MarketOverview";
 import { ChatbotProvider, MainContent } from "@/components/ChatbotContext";
 import ConditionalLayout from "@/components/ConditionalLayout";
+import { Analytics } from '@vercel/analytics/react';
 
 const SITE_NAME = 'Northline Finance';
 const SITE_DOMAIN = 'https://northline-finance.com';
@@ -56,6 +57,7 @@ export default function RootLayout({
             {children}
           </ConditionalLayout>
         </ChatbotProvider>
+        <Analytics />
       </body>
     </html>
   );
