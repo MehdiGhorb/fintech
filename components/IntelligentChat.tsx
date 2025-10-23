@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Send, Loader2, TrendingUp, Newspaper, Calendar, BarChart3, Mic } from 'lucide-react';
+import { Send, Loader2, Mic } from 'lucide-react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 
@@ -266,33 +266,6 @@ export default function IntelligentChat() {
 
   return (
     <div className="min-h-screen bg-black flex flex-col">
-      {/* Minimalistic Navigation */}
-      <nav className="border-b border-gray-900 bg-black/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2" aria-label="Northline Finance">
-            <span className="text-sm font-medium text-gray-400">Northline Finance</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <Link href="/markets" className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-900">
-              <TrendingUp size={14} className="inline mr-1.5" />
-              Markets
-            </Link>
-            <Link href="/screener" className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-900">
-              <BarChart3 size={14} className="inline mr-1.5" />
-              Screener
-            </Link>
-            <Link href="/calendar" className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-900">
-              <Calendar size={14} className="inline mr-1.5" />
-              Calendar
-            </Link>
-            <Link href="/news" className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-900">
-              <Newspaper size={14} className="inline mr-1.5" />
-              News
-            </Link>
-          </div>
-        </div>
-      </nav>
-
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col items-center px-6 py-8">
         {messages.length === 0 ? (
