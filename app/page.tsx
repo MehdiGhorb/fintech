@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import { Send, Loader2, TrendingUp, Edit3, Save, X, Sparkles, PieChart as PieChartIcon, Target, AlertCircle, Download, Share2 } from 'lucide-react';
+import { Send, Loader2, TrendingUp, Edit3, Save, X, Sparkles, PieChart as PieChartIcon, Target, AlertCircle, Download, Share2, Zap, TrendingDown, DollarSign } from 'lucide-react';
 
 interface InvestmentAllocation {
   category: string;
@@ -28,8 +28,17 @@ export default function Home() {
   const [editMode, setEditMode] = useState(false);
   const [editedStrategy, setEditedStrategy] = useState<InvestmentAllocation[]>([]);
   const [showQuickActions, setShowQuickActions] = useState(false);
+  const [showSplitView, setShowSplitView] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const suggestionPrompts = [
+    { icon: Sparkles, text: "Create a long-term investment portfolio", color: "from-blue-500 to-cyan-500" },
+    { icon: TrendingUp, text: "I'm 30 with moderate risk tolerance", color: "from-purple-500 to-pink-500" },
+    { icon: Target, text: "Help me plan for retirement", color: "from-orange-500 to-red-500" },
+    { icon: DollarSign, text: "Aggressive growth strategy", color: "from-green-500 to-emerald-500" },
+  ];
 
   useEffect(() => {
     loadInvestmentData();
@@ -39,8 +48,25 @@ export default function Home() {
     scrollToBottom();
   }, [messages]);
 
+  useEffect(() => {
+    // Check if we should show split view
+    if (strategy.length > 0 && !showSplitView && !isAnimating) {
+      triggerSplitViewAnimation();
+    }
+  }, [strategy]);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const triggerSplitViewAnimation = () => {
+    setIsAnimating(true);
+    setTimeout(() => {
+      setShowSplitView(true);
+      setTimeout(() => {
+        setIsAnimating(false);
+      }, 800);
+    }, 100);
   };
 
   const loadInvestmentData = async () => {
@@ -58,6 +84,7 @@ export default function Home() {
         if (profile?.investment_strategy && profile.investment_strategy.length > 0) {
           setStrategy(profile.investment_strategy);
           setEditedStrategy(profile.investment_strategy);
+          setShowSplitView(true);
         }
         if (profile?.investment_user_info) {
           setUserInfo(profile.investment_user_info);
@@ -68,7 +95,7 @@ export default function Home() {
             role: 'assistant',
             content: profile?.name 
               ? `Hi ${profile.name}! I'm your investment advisor. ${profile.investment_strategy?.length > 0 ? "I can see your current portfolio allocation. " : ""}I can help you build a personalized investment strategy. What would you like to discuss?`
-              : "Hi! I'm your investment advisor. I can help you create a personalized portfolio allocation. Would you like to get started?"
+              : "Hi! I'm your investment advisor. I can help you create a personalized portfolio allocation. What would you like to get started?"
           };
           setMessages([welcomeMsg]);
         }
@@ -78,10 +105,11 @@ export default function Home() {
     }
   };
 
-  const handleSendMessage = async () => {
-    if (!input.trim() || loading || !user) return;
+  const handleSendMessage = async (messageText?: string) => {
+    const textToSend = messageText || input;
+    if (!textToSend.trim() || loading || !user) return;
 
-    const userMessage: Message = { role: 'user', content: input };
+    const userMessage: Message = { role: 'user', content: textToSend };
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setLoading(true);
@@ -104,7 +132,7 @@ export default function Home() {
           ...(token && { 'Authorization': `Bearer ${token}` })
         },
         body: JSON.stringify({
-          message: input,
+          message: textToSend,
           context,
           userId: user.id,
           conversationHistory: messages.slice(-6)
@@ -137,6 +165,10 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSuggestionClick = (text: string) => {
+    handleSendMessage(text);
   };
 
   const handleEditPercentage = (index: number, value: string) => {
@@ -265,13 +297,125 @@ export default function Home() {
     );
   }
 
+  // Centered ChatGPT-like view (no portfolio yet)
+  if (!showSplitView) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-gray-900 via-black to-gray-900 flex items-center justify-center p-4">
+        <div className={`w-full max-w-3xl transition-all duration-700 ease-in-out ${
+          isAnimating ? 'translate-x-[40%] scale-90 opacity-50' : 'translate-x-0 scale-100 opacity-100'
+        }`}>
+          {/* Header */}
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 mb-6 animate-pulse">
+              <Sparkles size={40} className="text-white" />
+            </div>
+            <h1 className="text-4xl md:text-5xl font-bold text-white mb-4 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400">
+              Investment Advisor
+            </h1>
+            <p className="text-gray-400 text-lg">
+              Your personalized AI-powered portfolio strategist
+            </p>
+          </div>
+
+          {/* Suggestion Cards */}
+          {messages.length === 1 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-8 animate-fade-in">
+              {suggestionPrompts.map((prompt, idx) => {
+                const Icon = prompt.icon;
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => handleSuggestionClick(prompt.text)}
+                    disabled={loading}
+                    className="group relative p-5 bg-gray-800/50 hover:bg-gray-800 border border-gray-700 hover:border-gray-600 rounded-2xl text-left transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-blue-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <div className={`absolute inset-0 bg-gradient-to-br ${prompt.color} opacity-0 group-hover:opacity-10 rounded-2xl transition-opacity duration-300`} />
+                    <Icon size={24} className={`text-gray-400 group-hover:text-blue-400 transition-colors duration-300 mb-3`} />
+                    <p className="text-gray-300 group-hover:text-white transition-colors duration-300 text-sm font-medium">
+                      {prompt.text}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Chat Messages */}
+          <div className="bg-gray-900/50 border border-gray-800 rounded-3xl shadow-2xl backdrop-blur-xl overflow-hidden">
+            <div className="max-h-[50vh] overflow-y-auto p-6 space-y-4">
+              {messages.map((message, index) => (
+                <div
+                  key={index}
+                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} animate-slide-up`}
+                >
+                  <div
+                    className={`max-w-[85%] rounded-2xl px-5 py-3 ${
+                      message.role === 'user'
+                        ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg shadow-blue-500/20'
+                        : 'bg-gray-800 text-gray-200 border border-gray-700'
+                    }`}
+                  >
+                    <p className="text-sm md:text-base whitespace-pre-wrap leading-relaxed">{message.content}</p>
+                  </div>
+                </div>
+              ))}
+              {loading && (
+                <div className="flex justify-start">
+                  <div className="bg-gray-800 border border-gray-700 rounded-2xl px-5 py-4 flex items-center gap-3">
+                    <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />
+                    <span className="text-gray-400 text-sm">Thinking...</span>
+                  </div>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Input Area */}
+            <div className="border-t border-gray-800 p-4 bg-gray-900/80 backdrop-blur-xl">
+              <div className="flex gap-3">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && !loading && handleSendMessage()}
+                  placeholder="Tell me about your investment goals..."
+                  className="flex-1 px-6 py-4 bg-gray-800 border border-gray-700 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
+                  disabled={loading}
+                  autoFocus
+                />
+                <button
+                  onClick={() => handleSendMessage()}
+                  disabled={loading || !input.trim()}
+                  className="px-6 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-2xl hover:from-blue-700 hover:to-purple-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 hover:scale-105"
+                >
+                  <Send size={20} />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <p className="text-center text-gray-600 text-sm mt-6">
+            Powered by AI • Personalized for you
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Split view with animation (portfolio exists)
   return (
     <div className="min-h-screen bg-black">
       <div className="w-full px-6 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_600px] gap-6 h-[calc(100vh-120px)] max-w-[1800px] mx-auto">
+        <div className={`grid grid-cols-1 lg:grid-cols-[1fr_550px] gap-6 h-[calc(100vh-120px)] max-w-[1800px] mx-auto transition-all duration-700 ${
+          isAnimating ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
+        }`}>
           
           {/* Left Side - Chart & Controls */}
-          <div className="flex flex-col gap-6">
+          <div className={`flex flex-col gap-6 transition-all duration-700 ease-out ${
+            isAnimating ? 'translate-x-[-100%] opacity-0' : 'translate-x-0 opacity-100'
+          }`} style={{ transitionDelay: '200ms' }}>
             
             {/* Portfolio Visualization */}
             <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6 flex-1 flex flex-col">
@@ -293,113 +437,105 @@ export default function Home() {
                 )}
               </div>
 
-              {strategy.length === 0 ? (
-                <div className="flex-1 flex items-center justify-center">
-                  <div className="text-center space-y-3">
-                    <div className="w-20 h-20 bg-gray-800/50 border border-gray-700 rounded-full flex items-center justify-center mx-auto">
-                      <TrendingUp size={40} className="text-gray-600" />
-                    </div>
-                    <p className="text-gray-500">No portfolio yet</p>
-                    <p className="text-gray-600 text-sm">Chat with the advisor to create one</p>
+              <div className="flex-1 flex items-center justify-center">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={editMode ? editedStrategy : strategy}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={100}
+                      fill="#8884d8"
+                      paddingAngle={2}
+                      dataKey="percentage"
+                      nameKey="category"
+                      label={({ percentage }) => `${percentage}%`}
+                      animationBegin={0}
+                      animationDuration={800}
+                      animationEasing="ease-out"
+                    >
+                      {(editMode ? editedStrategy : strategy).map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip content={<CustomTooltip />} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+
+              {insights && !editMode && (
+                <div className="mb-4 p-3 bg-gray-800/50 border border-gray-700/50 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-400 text-sm">Risk Level:</span>
+                    <span className={`font-semibold text-sm ${
+                      insights.riskColor === 'red' ? 'text-red-400' :
+                      insights.riskColor === 'yellow' ? 'text-yellow-400' :
+                      'text-green-400'
+                    }`}>
+                      {insights.riskLevel}
+                    </span>
+                  </div>
+                  <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
+                    <span>{insights.stocksPercentage}% Stocks</span>
+                    <span>•</span>
+                    <span>{insights.bondsPercentage}% Bonds</span>
                   </div>
                 </div>
-              ) : (
-                <>
-                  <div className="flex-1 flex items-center justify-center">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={editMode ? editedStrategy : strategy}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={60}
-                          outerRadius={100}
-                          fill="#8884d8"
-                          paddingAngle={2}
-                          dataKey="percentage"
-                          nameKey="category"
-                          label={({ percentage }) => `${percentage}%`}
-                        >
-                          {(editMode ? editedStrategy : strategy).map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip content={<CustomTooltip />} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
+              )}
 
-                  {insights && !editMode && (
-                    <div className="mb-4 p-3 bg-gray-800/50 border border-gray-700/50 rounded-lg">
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-400 text-sm">Risk Level:</span>
-                        <span className={`font-semibold text-sm ${
-                          insights.riskColor === 'red' ? 'text-red-400' :
-                          insights.riskColor === 'yellow' ? 'text-yellow-400' :
-                          'text-green-400'
-                        }`}>
-                          {insights.riskLevel}
-                        </span>
-                      </div>
-                      <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
-                        <span>{insights.stocksPercentage}% Stocks</span>
-                        <span>•</span>
-                        <span>{insights.bondsPercentage}% Bonds</span>
-                      </div>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {(editMode ? editedStrategy : strategy).map((item, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center gap-3 p-3 bg-gray-800/50 border border-gray-700/50 rounded-lg"
+                    style={{ 
+                      animation: `slideInFromLeft 0.5s ease-out ${index * 0.1}s both`
+                    }}
+                  >
+                    <div
+                      className="w-3 h-3 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white font-medium text-sm truncate">{item.category}</p>
+                      {item.description && (
+                        <p className="text-gray-500 text-xs truncate">{item.description}</p>
+                      )}
                     </div>
-                  )}
-
-                  <div className="space-y-2 max-h-64 overflow-y-auto">
-                    {(editMode ? editedStrategy : strategy).map((item, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center gap-3 p-3 bg-gray-800/50 border border-gray-700/50 rounded-lg"
-                      >
-                        <div
-                          className="w-3 h-3 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-white font-medium text-sm truncate">{item.category}</p>
-                          {item.description && (
-                            <p className="text-gray-500 text-xs truncate">{item.description}</p>
-                          )}
-                        </div>
-                        {editMode ? (
-                          <input
-                            type="number"
-                            value={item.percentage}
-                            onChange={(e) => handleEditPercentage(index, e.target.value)}
-                            className="w-16 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm text-center"
-                            min="0"
-                            max="100"
-                          />
-                        ) : (
-                          <span className="text-white font-bold text-sm">{item.percentage}%</span>
-                        )}
-                      </div>
-                    ))}
+                    {editMode ? (
+                      <input
+                        type="number"
+                        value={item.percentage}
+                        onChange={(e) => handleEditPercentage(index, e.target.value)}
+                        className="w-16 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm text-center"
+                        min="0"
+                        max="100"
+                      />
+                    ) : (
+                      <span className="text-white font-bold text-sm">{item.percentage}%</span>
+                    )}
                   </div>
+                ))}
+              </div>
 
-                  {editMode && (
-                    <div className="mt-4 pt-4 border-t border-gray-800">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-gray-400 text-sm">Total:</span>
-                        <span className={`font-bold ${totalPercentage === 100 ? 'text-green-500' : 'text-yellow-500'}`}>
-                          {totalPercentage}%
-                        </span>
-                      </div>
-                      <button
-                        onClick={handleSaveEdits}
-                        disabled={totalPercentage === 0}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <Save size={16} />
-                        Save Changes
-                      </button>
-                    </div>
-                  )}
-                </>
+              {editMode && (
+                <div className="mt-4 pt-4 border-t border-gray-800">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-gray-400 text-sm">Total:</span>
+                    <span className={`font-bold ${totalPercentage === 100 ? 'text-green-500' : 'text-yellow-500'}`}>
+                      {totalPercentage}%
+                    </span>
+                  </div>
+                  <button
+                    onClick={handleSaveEdits}
+                    disabled={totalPercentage === 0}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Save size={16} />
+                    Save Changes
+                  </button>
+                </div>
               )}
             </div>
 
@@ -417,38 +553,38 @@ export default function Home() {
               </div>
             )}
 
-            {strategy.length > 0 && (
-              <div className="flex gap-2">
-                <button
-                  onClick={exportPortfolio}
-                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700 transition-colors text-sm"
-                  title="Export portfolio data"
-                >
-                  <Download size={16} />
-                  Export
-                </button>
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(
-                      strategy.map(s => `${s.category}: ${s.percentage}%`).join('\n')
-                    );
-                    setMessages(prev => [...prev, {
-                      role: 'assistant',
-                      content: 'Portfolio allocation copied to clipboard!'
-                    }]);
-                  }}
-                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700 transition-colors text-sm"
-                  title="Copy to clipboard"
-                >
-                  <Share2 size={16} />
-                  Share
-                </button>
-              </div>
-            )}
+            <div className="flex gap-2">
+              <button
+                onClick={exportPortfolio}
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700 transition-colors text-sm"
+                title="Export portfolio data"
+              >
+                <Download size={16} />
+                Export
+              </button>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(
+                    strategy.map(s => `${s.category}: ${s.percentage}%`).join('\n')
+                  );
+                  setMessages(prev => [...prev, {
+                    role: 'assistant',
+                    content: 'Portfolio allocation copied to clipboard!'
+                  }]);
+                }}
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700 transition-colors text-sm"
+                title="Copy to clipboard"
+              >
+                <Share2 size={16} />
+                Share
+              </button>
+            </div>
           </div>
 
-          {/* Right Side - Chat - Fixed width */}
-          <div className="bg-gray-900/50 border border-gray-800 rounded-xl flex flex-col overflow-hidden">
+          {/* Right Side - Chat - Animated */}
+          <div className={`bg-gray-900/50 border border-gray-800 rounded-xl flex flex-col overflow-hidden transition-all duration-700 ease-out ${
+            isAnimating ? 'translate-x-[100%] opacity-0 scale-90' : 'translate-x-0 opacity-100 scale-100'
+          }`} style={{ transitionDelay: '100ms' }}>
             <div className="p-4 border-b border-gray-800">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center">
@@ -489,7 +625,7 @@ export default function Home() {
             </div>
 
             <div className="p-4 border-t border-gray-800">
-              {showQuickActions && strategy.length > 0 && (
+              {showQuickActions && (
                 <div className="mb-3 grid grid-cols-2 gap-2">
                   {quickActions.map((action, idx) => {
                     const Icon = action.icon;
@@ -513,7 +649,7 @@ export default function Home() {
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                  onKeyPress={(e) => e.key === 'Enter' && !loading && handleSendMessage()}
                   onFocus={() => setShowQuickActions(true)}
                   onBlur={() => setTimeout(() => setShowQuickActions(false), 200)}
                   placeholder="Ask about portfolio allocation..."
@@ -521,7 +657,7 @@ export default function Home() {
                   disabled={loading}
                 />
                 <button
-                  onClick={handleSendMessage}
+                  onClick={() => handleSendMessage()}
                   disabled={loading || !input.trim()}
                   className="px-4 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -532,6 +668,49 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      <style jsx global>{`
+        @keyframes slideInFromLeft {
+          from {
+            opacity: 0;
+            transform: translateX(-20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+
+        @keyframes fade-in {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes slide-up {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .animate-fade-in {
+          animation: fade-in 0.6s ease-out;
+        }
+
+        .animate-slide-up {
+          animation: slide-up 0.4s ease-out;
+        }
+      `}</style>
     </div>
   );
 }
