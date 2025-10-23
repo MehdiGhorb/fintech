@@ -1,30 +1,18 @@
 'use client';
 
-import IntelligentChat from '@/components/IntelligentChat';
-import AuthModal from '@/components/auth/AuthModal';
-import { useSearchParams } from 'next/navigation';
-import { Suspense } from 'react';
-
-function HomeContent() {
-  const searchParams = useSearchParams();
-  const authMode = searchParams.get('auth');
-
-  return (
-    <>
-      <IntelligentChat />
-      {authMode && (
-        <Suspense fallback={null}>
-          <AuthModal />
-        </Suspense>
-      )}
-    </>
-  );
-}
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function Home() {
+  const router = useRouter();
+
+  useEffect(() => {
+    router.replace('/investment');
+  }, [router]);
+
   return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <HomeContent />
-    </Suspense>
+    <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="text-gray-400">Redirecting...</div>
+    </div>
   );
 }

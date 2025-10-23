@@ -1,10 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
-import { MessageSquare, RefreshCw } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { Send, Loader2, TrendingUp, Edit3, Save, X, Sparkles, PieChart as PieChartIcon, Target, AlertCircle, Download, Share2 } from 'lucide-react';
 
 interface InvestmentAllocation {
   category: string;
@@ -12,20 +11,39 @@ interface InvestmentAllocation {
   description?: string;
 }
 
-const COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#06b6d4', '#6366f1'];
+interface Message {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+const COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#06b6d4', '#6366f1', '#f43f5e'];
 
 export default function InvestmentPage() {
-  const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [strategy, setStrategy] = useState<InvestmentAllocation[]>([]);
-  const [loading, setLoading] = useState(true);
   const [userInfo, setUserInfo] = useState<any>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [editedStrategy, setEditedStrategy] = useState<InvestmentAllocation[]>([]);
+  const [showQuickActions, setShowQuickActions] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    loadInvestmentStrategy();
+    loadInvestmentData();
   }, []);
 
-  const loadInvestmentStrategy = async () => {
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const loadInvestmentData = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       setUser(session?.user ?? null);
@@ -33,32 +51,147 @@ export default function InvestmentPage() {
       if (session?.user) {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('investment_strategy, investment_user_info')
+          .select('investment_strategy, investment_user_info, name')
           .eq('id', session.user.id)
           .single();
 
-        if (profile?.investment_strategy) {
+        if (profile?.investment_strategy && profile.investment_strategy.length > 0) {
           setStrategy(profile.investment_strategy);
+          setEditedStrategy(profile.investment_strategy);
         }
         if (profile?.investment_user_info) {
           setUserInfo(profile.investment_user_info);
         }
+
+        // Set welcome message if first time
+        if (messages.length === 0) {
+          const welcomeMsg: Message = {
+            role: 'assistant',
+            content: profile?.name 
+              ? `Hi ${profile.name}! I'm your investment advisor. ${profile.investment_strategy?.length > 0 ? "I can see your current portfolio allocation. " : ""}I can help you build a personalized investment strategy. What would you like to discuss?`
+              : "Hi! I'm your investment advisor. I can help you create a personalized portfolio allocation. Would you like to get started?"
+          };
+          setMessages([welcomeMsg]);
+        }
       }
     } catch (error) {
-      console.error('Error loading investment strategy:', error);
+      console.error('Error loading investment data:', error);
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!input.trim() || loading || !user) return;
+
+    const userMessage: Message = { role: 'user', content: input };
+    setMessages(prev => [...prev, userMessage]);
+    setInput('');
+    setLoading(true);
+    setShowQuickActions(false);
+
+    try {
+      // Get auth session for API call
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
+      // Build context for the AI
+      const context = {
+        currentStrategy: strategy,
+        userInfo: userInfo,
+        hasStrategy: strategy.length > 0
+      };
+
+      const response = await fetch('/api/investment-chat', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        },
+        body: JSON.stringify({
+          message: input,
+          context,
+          userId: user.id,
+          conversationHistory: messages.slice(-6) // Last 3 exchanges
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      const assistantMessage: Message = {
+        role: 'assistant',
+        content: data.response
+      };
+
+      setMessages(prev => [...prev, assistantMessage]);
+
+      // If strategy was updated, refresh
+      if (data.strategyUpdated) {
+        await loadInvestmentData();
+      }
+
+    } catch (error) {
+      console.error('Chat error:', error);
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: 'Sorry, I encountered an error. Please try again.'
+      }]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleEditPercentage = (index: number, value: string) => {
+    const newStrategy = [...editedStrategy];
+    const numValue = parseFloat(value) || 0;
+    newStrategy[index].percentage = Math.max(0, Math.min(100, numValue));
+    setEditedStrategy(newStrategy);
+  };
+
+  const handleSaveEdits = async () => {
+    // Normalize to 100%
+    const total = editedStrategy.reduce((sum, item) => sum + item.percentage, 0);
+    if (total === 0) return;
+
+    const normalized = editedStrategy.map(item => ({
+      ...item,
+      percentage: Math.round((item.percentage / total) * 100)
+    }));
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          investment_strategy: normalized,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id);
+
+      if (!error) {
+        setStrategy(normalized);
+        setEditedStrategy(normalized);
+        setEditMode(false);
+        
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: 'I\'ve updated your portfolio allocation. The changes look good!'
+        }]);
+      }
+    } catch (error) {
+      console.error('Error saving edits:', error);
     }
   };
 
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-gray-900 border border-gray-700 rounded-lg p-3">
+        <div className="bg-gray-900 border border-gray-700 rounded-lg p-3 shadow-xl">
           <p className="text-white font-semibold">{payload[0].name}</p>
-          <p className="text-blue-400">{payload[0].value}%</p>
+          <p className="text-blue-400 font-bold">{payload[0].value}%</p>
           {payload[0].payload.description && (
-            <p className="text-gray-400 text-sm mt-1">{payload[0].payload.description}</p>
+            <p className="text-gray-400 text-sm mt-1 max-w-xs">{payload[0].payload.description}</p>
           )}
         </div>
       );
@@ -66,151 +199,353 @@ export default function InvestmentPage() {
     return null;
   };
 
+  const quickActions = [
+    { label: "Rebalance my portfolio", icon: Target },
+    { label: "Review my risk level", icon: AlertCircle },
+    { label: "Suggest improvements", icon: TrendingUp },
+    { label: "Explain my allocation", icon: PieChartIcon },
+  ];
+
+  const handleQuickAction = (action: string) => {
+    setInput(action);
+    setShowQuickActions(false);
+    inputRef.current?.focus();
+  };
+
+  const exportPortfolio = () => {
+    const data = {
+      strategy,
+      userInfo,
+      exportedAt: new Date().toISOString()
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `portfolio-${Date.now()}.json`;
+    a.click();
+  };
+
+  // Calculate portfolio insights
+  const getPortfolioInsights = () => {
+    if (strategy.length === 0) return null;
+
+    const stocksPercentage = strategy
+      .filter(s => s.category.toLowerCase().includes('stock'))
+      .reduce((sum, s) => sum + s.percentage, 0);
+
+    const bondsPercentage = strategy
+      .filter(s => s.category.toLowerCase().includes('bond'))
+      .reduce((sum, s) => sum + s.percentage, 0);
+
+    let riskLevel = 'Unknown';
+    let riskColor = 'gray';
+    
+    if (stocksPercentage >= 70) {
+      riskLevel = 'Aggressive';
+      riskColor = 'red';
+    } else if (stocksPercentage >= 50) {
+      riskLevel = 'Moderate';
+      riskColor = 'yellow';
+    } else {
+      riskLevel = 'Conservative';
+      riskColor = 'green';
+    }
+
+    return { stocksPercentage, bondsPercentage, riskLevel, riskColor };
+  };
+
+  const insights = getPortfolioInsights();
+  const totalPercentage = editedStrategy.reduce((sum, item) => sum + item.percentage, 0);
+
   if (!user) {
     return (
-      <div className="container mx-auto px-6 py-8">
-        <div className="text-center py-12">
-          <h2 className="text-2xl font-bold text-white mb-4">Sign in to view your investment strategy</h2>
-          <p className="text-gray-400">Create an account to get personalized investment advice</p>
+      <div className="min-h-screen bg-black flex items-center justify-center p-6">
+        <div className="text-center max-w-md">
+          <div className="w-16 h-16 bg-blue-900/20 border border-blue-800/50 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Sparkles size={32} className="text-blue-500" />
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-3">Investment Strategy</h2>
+          <p className="text-gray-400 mb-6">Sign in to access your personalized investment advisor and portfolio management</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-6 py-8">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-white mb-2">Investment Strategy</h1>
-          <p className="text-gray-400">Personalized portfolio allocation based on your profile</p>
-        </div>
-        {strategy.length > 0 && (
-          <button
-            onClick={() => router.push('/chat')}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <RefreshCw size={20} />
-            Update Strategy
-          </button>
-        )}
-      </div>
-
-      {loading ? (
-        <div className="text-center py-12 text-gray-400">Loading...</div>
-      ) : strategy.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16">
-          <div className="max-w-2xl text-center space-y-6">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-blue-900/20 border border-blue-800/50 rounded-full mb-4">
-              <MessageSquare size={40} className="text-blue-500" />
-            </div>
-            <h2 className="text-2xl font-bold text-white">No Investment Strategy Yet</h2>
-            <p className="text-gray-400 text-lg">
-              Chat with our AI assistant to create a personalized investment strategy tailored to your:
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-              <div className="p-4 bg-gray-900/50 border border-gray-800 rounded-lg text-left">
-                <h3 className="text-white font-semibold mb-2">Personal Profile</h3>
-                <ul className="text-gray-400 text-sm space-y-1">
-                  <li>• Age & Life Stage</li>
-                  <li>• Risk Tolerance</li>
-                  <li>• Financial Goals</li>
-                </ul>
-              </div>
-              <div className="p-4 bg-gray-900/50 border border-gray-800 rounded-lg text-left">
-                <h3 className="text-white font-semibold mb-2">Financial Details</h3>
-                <ul className="text-gray-400 text-sm space-y-1">
-                  <li>• Income Level</li>
-                  <li>• Investment Timeline</li>
-                  <li>• Current Assets</li>
-                </ul>
-              </div>
-            </div>
-            <button
-              onClick={() => router.push('/chat')}
-              className="mt-8 flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors mx-auto"
-            >
-              <MessageSquare size={20} />
-              Start Chat to Create Strategy
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Pie Chart */}
-          <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6">
-            <h2 className="text-xl font-bold text-white mb-6">Portfolio Allocation</h2>
-            <ResponsiveContainer width="100%" height={400}>
-              <PieChart>
-                <Pie
-                  data={strategy}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percentage }) => `${name}: ${percentage}%`}
-                  outerRadius={120}
-                  fill="#8884d8"
-                  dataKey="percentage"
-                  nameKey="category"
-                >
-                  {strategy.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip content={<CustomTooltip />} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Breakdown */}
-          <div className="space-y-4">
-            <h2 className="text-xl font-bold text-white mb-6">Allocation Breakdown</h2>
-            {strategy.map((item, index) => (
-              <div
-                key={item.category}
-                className="p-4 bg-gray-900/50 border border-gray-800 rounded-lg hover:border-gray-700 transition-colors"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-4 h-4 rounded"
-                      style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                    />
-                    <h3 className="text-white font-semibold">{item.category}</h3>
-                  </div>
-                  <span className="text-2xl font-bold text-white">{item.percentage}%</span>
+    <div className="min-h-screen bg-black">
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-120px)]">
+          
+          {/* Right Side - Chat */}
+          <div className="bg-gray-900/50 border border-gray-800 rounded-xl flex flex-col overflow-hidden order-1 lg:order-2">
+            <div className="p-4 border-b border-gray-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center">
+                  <Sparkles size={20} className="text-white" />
                 </div>
-                {item.description && (
-                  <p className="text-gray-400 text-sm mt-2 ml-7">{item.description}</p>
+                <div>
+                  <h3 className="text-white font-semibold">Investment Advisor</h3>
+                  <p className="text-gray-500 text-xs">Personalized portfolio guidance</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {messages.map((message, index) => (
+                <div
+                  key={index}
+                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div
+                    className={`max-w-[80%] rounded-2xl px-4 py-3 ${
+                      message.role === 'user'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-800 text-gray-200'
+                    }`}
+                  >
+                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                  </div>
+                </div>
+              ))}
+              {loading && (
+                <div className="flex justify-start">
+                  <div className="bg-gray-800 rounded-2xl px-4 py-3">
+                    <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
+                  </div>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Input */}
+            <div className="p-4 border-t border-gray-800">
+              {/* Quick Actions */}
+              {showQuickActions && strategy.length > 0 && (
+                <div className="mb-3 grid grid-cols-2 gap-2">
+                  {quickActions.map((action, idx) => {
+                    const Icon = action.icon;
+                    return (
+                      <button
+                        key={idx}
+                        onClick={() => handleQuickAction(action.label)}
+                        className="flex items-center gap-2 px-3 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors text-sm"
+                      >
+                        <Icon size={14} />
+                        <span className="truncate">{action.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              
+              <div className="flex gap-2">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                  onFocus={() => setShowQuickActions(true)}
+                  onBlur={() => setTimeout(() => setShowQuickActions(false), 200)}
+                  placeholder="Ask about portfolio allocation..."
+                  className="flex-1 px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-600 text-sm"
+                  disabled={loading}
+                />
+                <button
+                  onClick={handleSendMessage}
+                  disabled={loading || !input.trim()}
+                  className="px-4 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Send size={20} />
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          {/* Left Side - Chart & Controls */}
+          <div className="flex flex-col gap-6 order-2 lg:order-1">
+            
+            {/* Portfolio Visualization */}
+            <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6 flex-1 flex flex-col">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-white">Portfolio Allocation</h2>
+                {strategy.length > 0 && (
+                  <button
+                    onClick={() => {
+                      if (editMode) {
+                        setEditedStrategy(strategy);
+                      }
+                      setEditMode(!editMode);
+                    }}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm"
+                  >
+                    {editMode ? <X size={16} /> : <Edit3 size={16} />}
+                    {editMode ? 'Cancel' : 'Edit'}
+                  </button>
                 )}
               </div>
-            ))}
+
+              {strategy.length === 0 ? (
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="text-center space-y-3">
+                    <div className="w-20 h-20 bg-gray-800/50 border border-gray-700 rounded-full flex items-center justify-center mx-auto">
+                      <TrendingUp size={40} className="text-gray-600" />
+                    </div>
+                    <p className="text-gray-500">No portfolio yet</p>
+                    <p className="text-gray-600 text-sm">Chat with the advisor to create one</p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="flex-1 flex items-center justify-center">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={editMode ? editedStrategy : strategy}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={60}
+                          outerRadius={100}
+                          fill="#8884d8"
+                          paddingAngle={2}
+                          dataKey="percentage"
+                          nameKey="category"
+                          label={({ percentage }) => `${percentage}%`}
+                        >
+                          {(editMode ? editedStrategy : strategy).map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip content={<CustomTooltip />} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* Risk Indicator */}
+                  {insights && !editMode && (
+                    <div className="mb-4 p-3 bg-gray-800/50 border border-gray-700/50 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-400 text-sm">Risk Level:</span>
+                        <span className={`font-semibold text-sm ${
+                          insights.riskColor === 'red' ? 'text-red-400' :
+                          insights.riskColor === 'yellow' ? 'text-yellow-400' :
+                          'text-green-400'
+                        }`}>
+                          {insights.riskLevel}
+                        </span>
+                      </div>
+                      <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
+                        <span>{insights.stocksPercentage}% Stocks</span>
+                        <span>•</span>
+                        <span>{insights.bondsPercentage}% Bonds</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Allocation List */}
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {(editMode ? editedStrategy : strategy).map((item, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center gap-3 p-3 bg-gray-800/50 border border-gray-700/50 rounded-lg"
+                      >
+                        <div
+                          className="w-3 h-3 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white font-medium text-sm truncate">{item.category}</p>
+                          {item.description && (
+                            <p className="text-gray-500 text-xs truncate">{item.description}</p>
+                          )}
+                        </div>
+                        {editMode ? (
+                          <input
+                            type="number"
+                            value={item.percentage}
+                            onChange={(e) => handleEditPercentage(index, e.target.value)}
+                            className="w-16 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm text-center"
+                            min="0"
+                            max="100"
+                          />
+                        ) : (
+                          <span className="text-white font-bold text-sm">{item.percentage}%</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {editMode && (
+                    <div className="mt-4 pt-4 border-t border-gray-800">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-gray-400 text-sm">Total:</span>
+                        <span className={`font-bold ${totalPercentage === 100 ? 'text-green-500' : 'text-yellow-500'}`}>
+                          {totalPercentage}%
+                        </span>
+                      </div>
+                      <button
+                        onClick={handleSaveEdits}
+                        disabled={totalPercentage === 0}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <Save size={16} />
+                        Save Changes
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
 
             {/* User Info Summary */}
-            {userInfo && (
-              <div className="mt-8 p-4 bg-blue-900/20 border border-blue-800/50 rounded-lg">
-                <h3 className="text-white font-semibold mb-3">Based on Your Profile</h3>
-                <div className="space-y-2 text-sm">
-                  {userInfo.age && (
-                    <p className="text-gray-300">
-                      <span className="text-gray-500">Age:</span> {userInfo.age}
-                    </p>
-                  )}
-                  {userInfo.riskTolerance && (
-                    <p className="text-gray-300">
-                      <span className="text-gray-500">Risk Tolerance:</span> {userInfo.riskTolerance}
-                    </p>
-                  )}
-                  {userInfo.investmentGoal && (
-                    <p className="text-gray-300">
-                      <span className="text-gray-500">Goal:</span> {userInfo.investmentGoal}
-                    </p>
-                  )}
+            {userInfo && Object.keys(userInfo).length > 0 && (
+              <div className="bg-blue-900/10 border border-blue-800/30 rounded-xl p-4">
+                <h3 className="text-white font-semibold mb-3 text-sm">Your Profile</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  {Object.entries(userInfo).map(([key, value]) => (
+                    <div key={key} className="text-sm">
+                      <span className="text-gray-500 capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}:</span>
+                      <span className="text-gray-300 ml-2">{value as string}</span>
+                    </div>
+                  ))}
                 </div>
+              </div>
+            )}
+
+            {/* Portfolio Actions */}
+            {strategy.length > 0 && (
+              <div className="flex gap-2">
+                <button
+                  onClick={exportPortfolio}
+                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700 transition-colors text-sm"
+                  title="Export portfolio data"
+                >
+                  <Download size={16} />
+                  Export
+                </button>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(
+                      strategy.map(s => `${s.category}: ${s.percentage}%`).join('\n')
+                    );
+                    setMessages(prev => [...prev, {
+                      role: 'assistant',
+                      content: 'Portfolio allocation copied to clipboard!'
+                    }]);
+                  }}
+                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700 transition-colors text-sm"
+                  title="Copy to clipboard"
+                >
+                  <Share2 size={16} />
+                  Share
+                </button>
               </div>
             )}
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
