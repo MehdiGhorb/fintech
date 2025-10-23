@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { TrendingUp, Newspaper, Briefcase, Eye, LogIn, UserPlus, LogOut, User } from 'lucide-react';
+import { TrendingUp, Newspaper, Briefcase, Eye, LogIn, UserPlus, LogOut, User, Sparkles } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 
@@ -74,6 +74,17 @@ export default function Navigation() {
           <div className="flex items-center gap-4 ml-auto">
             <div className="flex items-center gap-1">
               <Link 
+                href="/" 
+                className={`px-4 py-2 text-sm transition-colors rounded-lg ${
+                  isActive('/') || isActive('/investment')
+                    ? 'text-gray-200 bg-gray-900' 
+                    : 'text-gray-500 hover:text-gray-300 hover:bg-gray-900'
+                }`}
+              >
+                <Sparkles size={16} className="inline mr-2" />
+                Investment
+              </Link>
+              <Link 
                 href="/markets" 
                 className={`px-4 py-2 text-sm transition-colors rounded-lg ${
                   isActive('/markets') 
@@ -94,28 +105,6 @@ export default function Navigation() {
               >
                 <Eye size={16} className="inline mr-2" />
                 Watchlist
-              </Link>
-              <Link 
-                href="/investment" 
-                className={`px-4 py-2 text-sm transition-colors rounded-lg ${
-                  isActive('/investment') 
-                    ? 'text-gray-200 bg-gray-900' 
-                    : 'text-gray-500 hover:text-gray-300 hover:bg-gray-900'
-                }`}
-              >
-                <Briefcase size={16} className="inline mr-2" />
-                Investment
-              </Link>
-              <Link 
-                href="/news" 
-                className={`px-4 py-2 text-sm transition-colors rounded-lg ${
-                  isActive('/news') 
-                    ? 'text-gray-200 bg-gray-900' 
-                    : 'text-gray-500 hover:text-gray-300 hover:bg-gray-900'
-                }`}
-              >
-                <Newspaper size={16} className="inline mr-2" />
-                News
               </Link>
             </div>
 

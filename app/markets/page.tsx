@@ -1,9 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { TrendingUp, TrendingDown, ArrowLeft } from 'lucide-react';
-import AssistantPanel from '@/components/AssistantPanel';
+import { TrendingUp, TrendingDown, Search, DollarSign, ArrowLeft } from 'lucide-react';
 
 interface Asset {
   id: string;
@@ -139,8 +138,6 @@ export default function MarketsPage() {
         </div>
       )}
       </div>
-
-      <AssistantPanel context={{ page: 'markets' }} />
     </>
   );
 }

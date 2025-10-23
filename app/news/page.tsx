@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, ExternalLink, Calendar, Building2 } from 'lucide-react';
 import { format } from 'date-fns';
-import AssistantPanel from '@/components/AssistantPanel';
 
 interface NewsArticle {
   id: string;
@@ -122,8 +121,6 @@ export default function NewsPage() {
         </div>
       )}
       </div>
-
-      <AssistantPanel context={{ page: 'news' }} />
     </>
   );
 }
