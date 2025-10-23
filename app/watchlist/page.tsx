@@ -30,6 +30,7 @@ export default function WatchlistPage() {
       setUser(session?.user ?? null);
 
       if (session?.user) {
+        // Load from database if logged in
         const { data: profile } = await supabase
           .from('profiles')
           .select('watchlist')
@@ -38,6 +39,12 @@ export default function WatchlistPage() {
 
         if (profile?.watchlist) {
           setWatchlist(profile.watchlist);
+        }
+      } else {
+        // Load from localStorage if not logged in
+        const savedWatchlist = localStorage.getItem('watchlist');
+        if (savedWatchlist) {
+          setWatchlist(JSON.parse(savedWatchlist));
         }
       }
     } catch (error) {
@@ -48,7 +55,7 @@ export default function WatchlistPage() {
   };
 
   const addToWatchlist = async () => {
-    if (!user || !newSymbol.trim()) return;
+    if (!newSymbol.trim()) return;
 
     const newItem: WatchlistItem = {
       symbol: newSymbol.toUpperCase().trim(),
@@ -58,36 +65,46 @@ export default function WatchlistPage() {
     const updatedWatchlist = [...watchlist, newItem];
 
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ watchlist: updatedWatchlist })
-        .eq('id', user.id);
+      if (user) {
+        // Save to database if logged in
+        const { error } = await supabase
+          .from('profiles')
+          .update({ watchlist: updatedWatchlist })
+          .eq('id', user.id);
 
-      if (!error) {
-        setWatchlist(updatedWatchlist);
-        setNewSymbol('');
-        setNewName('');
-        setShowAddModal(false);
+        if (error) throw error;
+      } else {
+        // Save to localStorage if not logged in
+        localStorage.setItem('watchlist', JSON.stringify(updatedWatchlist));
       }
+
+      setWatchlist(updatedWatchlist);
+      setNewSymbol('');
+      setNewName('');
+      setShowAddModal(false);
     } catch (error) {
       console.error('Error adding to watchlist:', error);
     }
   };
 
   const removeFromWatchlist = async (symbol: string) => {
-    if (!user) return;
-
     const updatedWatchlist = watchlist.filter(item => item.symbol !== symbol);
 
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ watchlist: updatedWatchlist })
-        .eq('id', user.id);
+      if (user) {
+        // Save to database if logged in
+        const { error } = await supabase
+          .from('profiles')
+          .update({ watchlist: updatedWatchlist })
+          .eq('id', user.id);
 
-      if (!error) {
-        setWatchlist(updatedWatchlist);
+        if (error) throw error;
+      } else {
+        // Save to localStorage if not logged in
+        localStorage.setItem('watchlist', JSON.stringify(updatedWatchlist));
       }
+
+      setWatchlist(updatedWatchlist);
     } catch (error) {
       console.error('Error removing from watchlist:', error);
     }
@@ -98,19 +115,16 @@ export default function WatchlistPage() {
     item.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  if (!user) {
-    return (
-      <div className="container mx-auto px-6 py-8">
-        <div className="text-center py-12">
-          <h2 className="text-2xl font-bold text-white mb-4">Sign in to view your watchlist</h2>
-          <p className="text-gray-400">Create an account to start tracking your favorite stocks</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="container mx-auto px-6 py-8">
+      {!user && (
+        <div className="mb-6 p-4 bg-blue-900/20 border border-blue-800/50 rounded-lg">
+          <p className="text-blue-300 text-sm">
+            💡 You're using the watchlist without signing in. Your data won't be saved after you leave.
+          </p>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-3xl font-bold text-white">My Watchlist</h1>
         <button

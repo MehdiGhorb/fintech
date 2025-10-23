@@ -139,21 +139,24 @@ export async function POST(request: NextRequest) {
   try {
     const { message, context, userId, conversationHistory } = await request.json();
 
-    if (!message || !userId) {
+    if (!message) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // Create Supabase client with user's auth token
-    const authHeader = request.headers.get('authorization');
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        global: {
-          headers: authHeader ? { Authorization: authHeader } : {}
+    // Create Supabase client with user's auth token (only if user is logged in)
+    let supabase = null;
+    if (userId) {
+      const authHeader = request.headers.get('authorization');
+      supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          global: {
+            headers: authHeader ? { Authorization: authHeader } : {}
+          }
         }
-      }
-    );
+      );
+    }
 
     // Build context message about current state
     let contextMessage = '';
@@ -248,6 +251,8 @@ export async function POST(request: NextRequest) {
     // Check if response contains portfolio update
     let strategyUpdated = false;
     let finalResponse = assistantResponse;
+    let generatedStrategy = null;
+    let generatedUserInfo = null;
     
     console.log('AI Response:', assistantResponse);
     
@@ -369,23 +374,32 @@ export async function POST(request: NextRequest) {
           console.log('Extracted user info:', userInfoToSave);
           console.log('Normalized portfolio to save:', normalizedPortfolio);
 
-          // Update Supabase
-          const { data: updateData, error } = await supabase
-            .from('profiles')
-            .update({
-              investment_strategy: normalizedPortfolio,
-              investment_user_info: userInfoToSave
-            })
-            .eq('id', userId)
-            .select();
+          // Store for return value
+          generatedStrategy = normalizedPortfolio;
+          generatedUserInfo = userInfoToSave;
 
-          console.log('Supabase update result:', { data: updateData, error });
+          // Update Supabase only if user is logged in
+          if (supabase && userId) {
+            const { data: updateData, error } = await supabase
+              .from('profiles')
+              .update({
+                investment_strategy: normalizedPortfolio,
+                investment_user_info: userInfoToSave
+              })
+              .eq('id', userId)
+              .select();
 
-          if (!error) {
-            strategyUpdated = true;
-            console.log('Portfolio successfully saved to database');
+            console.log('Supabase update result:', { data: updateData, error });
+
+            if (!error) {
+              strategyUpdated = true;
+              console.log('Portfolio successfully saved to database');
+            } else {
+              console.error('Failed to save portfolio:', error);
+            }
           } else {
-            console.error('Failed to save portfolio:', error);
+            // For non-logged in users, still mark as updated so frontend can save to localStorage
+            strategyUpdated = true;
           }
 
           // Remove the update command from the response
@@ -411,23 +425,33 @@ export async function POST(request: NextRequest) {
         const fallbackPortfolio = generateDefaultPortfolio(userInfoToCheck);
         console.log('💼 Generated fallback portfolio:', fallbackPortfolio);
         
-        const { data: fallbackData, error } = await supabase
-          .from('profiles')
-          .update({
-            investment_strategy: fallbackPortfolio,
-            investment_user_info: userInfoToCheck
-          })
-          .eq('id', userId)
-          .select();
+        // Store for return value
+        generatedStrategy = fallbackPortfolio;
+        generatedUserInfo = userInfoToCheck;
+        
+        if (supabase && userId) {
+          const { data: fallbackData, error } = await supabase
+            .from('profiles')
+            .update({
+              investment_strategy: fallbackPortfolio,
+              investment_user_info: userInfoToCheck
+            })
+            .eq('id', userId)
+            .select();
 
-        console.log('📝 Fallback update result:', { data: fallbackData, error });
+          console.log('📝 Fallback update result:', { data: fallbackData, error });
 
-        if (!error) {
+          if (!error) {
+            strategyUpdated = true;
+            finalResponse += "\n\nI've created a personalized portfolio for you based on your profile. Check out the chart on the left!";
+            console.log('✅ Fallback portfolio saved successfully');
+          } else {
+            console.error('❌ Fallback Supabase update error:', error);
+          }
+        } else {
+          // For non-logged in users
           strategyUpdated = true;
           finalResponse += "\n\nI've created a personalized portfolio for you based on your profile. Check out the chart on the left!";
-          console.log('✅ Fallback portfolio saved successfully');
-        } else {
-          console.error('❌ Fallback Supabase update error:', error);
         }
       } catch (fallbackError) {
         console.error('❌ Fallback generation error:', fallbackError);
@@ -436,7 +460,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       response: finalResponse,
-      strategyUpdated
+      strategyUpdated,
+      strategy: generatedStrategy,
+      userInfo: generatedUserInfo
     });
 
   } catch (error: any) {

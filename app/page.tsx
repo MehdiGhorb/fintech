@@ -75,6 +75,7 @@ export default function Home() {
       setUser(session?.user ?? null);
 
       if (session?.user) {
+        // Load from database if logged in
         const { data: profile } = await supabase
           .from('profiles')
           .select('investment_strategy, investment_user_info, name')
@@ -99,15 +100,45 @@ export default function Home() {
           };
           setMessages([welcomeMsg]);
         }
+      } else {
+        // Load from localStorage if not logged in
+        const savedStrategy = localStorage.getItem('investment_strategy');
+        const savedUserInfo = localStorage.getItem('investment_user_info');
+        
+        if (savedStrategy) {
+          const parsedStrategy = JSON.parse(savedStrategy);
+          setStrategy(parsedStrategy);
+          setEditedStrategy(parsedStrategy);
+          setShowSplitView(true);
+        }
+        if (savedUserInfo) {
+          setUserInfo(JSON.parse(savedUserInfo));
+        }
+
+        if (messages.length === 0) {
+          const welcomeMsg: Message = {
+            role: 'assistant',
+            content: "Hi! I'm your investment advisor. I can help you create a personalized portfolio allocation. Note: Your data won't be saved after you leave unless you sign in. What would you like to get started?"
+          };
+          setMessages([welcomeMsg]);
+        }
       }
     } catch (error) {
       console.error('Error loading investment data:', error);
+      // Still show welcome message even on error
+      if (messages.length === 0) {
+        const welcomeMsg: Message = {
+          role: 'assistant',
+          content: "Hi! I'm your investment advisor. I can help you create a personalized portfolio allocation. What would you like to get started?"
+        };
+        setMessages([welcomeMsg]);
+      }
     }
   };
 
   const handleSendMessage = async (messageText?: string) => {
     const textToSend = messageText || input;
-    if (!textToSend.trim() || loading || !user) return;
+    if (!textToSend.trim() || loading) return;
 
     const userMessage: Message = { role: 'user', content: textToSend };
     setMessages(prev => [...prev, userMessage]);
@@ -134,7 +165,7 @@ export default function Home() {
         body: JSON.stringify({
           message: textToSend,
           context,
-          userId: user.id,
+          userId: user?.id || null,
           conversationHistory: messages.slice(-6)
         })
       });
@@ -153,7 +184,22 @@ export default function Home() {
       setMessages(prev => [...prev, assistantMessage]);
 
       if (data.strategyUpdated) {
-        await loadInvestmentData();
+        if (user) {
+          // Reload from database if logged in
+          await loadInvestmentData();
+        } else {
+          // Update localStorage if not logged in
+          if (data.strategy) {
+            setStrategy(data.strategy);
+            setEditedStrategy(data.strategy);
+            setShowSplitView(true);
+            localStorage.setItem('investment_strategy', JSON.stringify(data.strategy));
+          }
+          if (data.userInfo) {
+            setUserInfo(data.userInfo);
+            localStorage.setItem('investment_user_info', JSON.stringify(data.userInfo));
+          }
+        }
       }
 
     } catch (error) {
@@ -188,23 +234,29 @@ export default function Home() {
     }));
 
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          investment_strategy: normalized
-        })
-        .eq('id', user.id);
+      if (user) {
+        // Save to database if logged in
+        const { error } = await supabase
+          .from('profiles')
+          .update({
+            investment_strategy: normalized
+          })
+          .eq('id', user.id);
 
-      if (!error) {
-        setStrategy(normalized);
-        setEditedStrategy(normalized);
-        setEditMode(false);
-        
-        setMessages(prev => [...prev, {
-          role: 'assistant',
-          content: 'I\'ve updated your portfolio allocation. The changes look good!'
-        }]);
+        if (error) throw error;
+      } else {
+        // Save to localStorage if not logged in
+        localStorage.setItem('investment_strategy', JSON.stringify(normalized));
       }
+
+      setStrategy(normalized);
+      setEditedStrategy(normalized);
+      setEditMode(false);
+      
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: 'I\'ve updated your portfolio allocation. The changes look good!'
+      }]);
     } catch (error) {
       console.error('Error saving edits:', error);
     }
@@ -283,20 +335,6 @@ export default function Home() {
   const insights = getPortfolioInsights();
   const totalPercentage = editedStrategy.reduce((sum, item) => sum + item.percentage, 0);
 
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center p-6">
-        <div className="text-center max-w-md">
-          <div className="w-16 h-16 bg-blue-900/20 border border-blue-800/50 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Sparkles size={32} className="text-blue-500" />
-          </div>
-          <h2 className="text-2xl font-bold text-white mb-3">Investment Strategy</h2>
-          <p className="text-gray-400 mb-6">Sign in to access your personalized investment advisor and portfolio management</p>
-        </div>
-      </div>
-    );
-  }
-
   // Centered ChatGPT-like view (no portfolio yet)
   if (!showSplitView) {
     return (
@@ -315,6 +353,13 @@ export default function Home() {
             <p className="text-gray-400 text-lg">
               Your personalized AI-powered portfolio strategist
             </p>
+            {!user && (
+              <div className="mt-4 mx-auto max-w-md">
+                <p className="text-blue-300/70 text-sm px-4 py-2 bg-blue-900/10 border border-blue-800/30 rounded-lg">
+                  💡 Not signed in - your portfolio won't be saved after you leave
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Suggestion Cards */}

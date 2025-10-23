@@ -108,42 +108,40 @@ export default function Navigation() {
               </Link>
             </div>
 
-            {!loading && (
-              <div className="flex items-center gap-2 ml-2 pl-4 border-l border-gray-800">
-                {user ? (
-                  <>
-                    <div className="px-4 py-2 text-sm text-gray-400 flex items-center gap-2">
-                      <User size={16} />
-                      <span>{profile?.name || user.email?.split('@')[0]}</span>
-                    </div>
-                    <button
-                      onClick={handleLogout}
-                      className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 hover:bg-gray-900 transition-colors rounded-lg flex items-center gap-2"
-                    >
-                      <LogOut size={16} />
-                      Logout
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <Link 
-                      href="/?auth=login" 
-                      className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 hover:bg-gray-900 transition-colors rounded-lg flex items-center gap-2"
-                    >
-                      <LogIn size={16} />
-                      Login
-                    </Link>
-                    <Link 
-                      href="/?auth=register" 
-                      className="px-4 py-2 text-sm bg-blue-600 text-white hover:bg-blue-700 transition-colors rounded-lg flex items-center gap-2"
-                    >
-                      <UserPlus size={16} />
-                      Sign Up
-                    </Link>
-                  </>
-                )}
-              </div>
-            )}
+            <div className="flex items-center gap-2 ml-2 pl-4 border-l border-gray-800">
+              {user ? (
+                <>
+                  <div className="px-4 py-2 text-sm text-gray-400 flex items-center gap-2">
+                    <User size={16} />
+                    <span>{profile?.name || user.email?.split('@')[0]}</span>
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 hover:bg-gray-900 transition-colors rounded-lg flex items-center gap-2"
+                  >
+                    <LogOut size={16} />
+                    Logout
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link 
+                    href="/login" 
+                    className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 hover:bg-gray-900 transition-colors rounded-lg flex items-center gap-2"
+                  >
+                    <LogIn size={16} />
+                    Login
+                  </Link>
+                  <Link 
+                    href="/register" 
+                    className="px-4 py-2 text-sm bg-blue-600 text-white hover:bg-blue-700 transition-colors rounded-lg flex items-center gap-2"
+                  >
+                    <UserPlus size={16} />
+                    Sign Up
+                  </Link>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
