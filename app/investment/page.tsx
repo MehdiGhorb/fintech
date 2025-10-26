@@ -62,17 +62,6 @@ export default function InvestmentPage() {
         if (profile?.investment_user_info) {
           setUserInfo(profile.investment_user_info);
         }
-
-        // Set welcome message if first time
-        if (messages.length === 0) {
-          const welcomeMsg: Message = {
-            role: 'assistant',
-            content: profile?.name 
-              ? `Hi ${profile.name}! I'm your investment advisor. ${profile.investment_strategy?.length > 0 ? "I can see your current portfolio allocation. " : ""}I can help you build a personalized investment strategy. What would you like to discuss?`
-              : "Hi! I'm your investment advisor. I can help you create a personalized portfolio allocation. Would you like to get started?"
-          };
-          setMessages([welcomeMsg]);
-        }
       }
     } catch (error) {
       console.error('Error loading investment data:', error);
@@ -262,11 +251,8 @@ export default function InvestmentPage() {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center p-6">
         <div className="text-center max-w-md">
-          <div className="w-16 h-16 bg-blue-900/20 border border-blue-800/50 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Sparkles size={32} className="text-blue-500" />
-          </div>
           <h2 className="text-2xl font-bold text-white mb-3">Investment Strategy</h2>
-          <p className="text-gray-400 mb-6">Sign in to access your personalized investment advisor and portfolio management</p>
+          <p className="text-gray-400 mb-6">Sign in to access your personalized portfolio management</p>
         </div>
       </div>
     );
@@ -281,11 +267,8 @@ export default function InvestmentPage() {
           <div className="bg-gray-900/50 border border-gray-800 rounded-xl flex flex-col overflow-hidden order-1 lg:order-2">
             <div className="p-4 border-b border-gray-800">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center">
-                  <Sparkles size={20} className="text-white" />
-                </div>
                 <div>
-                  <h3 className="text-white font-semibold">Investment Advisor</h3>
+                  <h3 className="text-white font-semibold">Investment Strategy</h3>
                   <p className="text-gray-500 text-xs">Personalized portfolio guidance</p>
                 </div>
               </div>

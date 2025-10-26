@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import { Send, Loader2, TrendingUp, Edit3, Save, X, Sparkles, PieChart as PieChartIcon, Target, AlertCircle, Download, Share2, Zap, TrendingDown, DollarSign } from 'lucide-react';
+import { Send, Loader2, TrendingUp, Edit3, Save, X, Sparkles, PieChart as PieChartIcon, Target, AlertCircle, Download, Share2, Zap, TrendingDown, DollarSign, Trash2 } from 'lucide-react';
 
 interface InvestmentAllocation {
   category: string;
@@ -90,16 +90,6 @@ export default function Home() {
         if (profile?.investment_user_info) {
           setUserInfo(profile.investment_user_info);
         }
-
-        if (messages.length === 0) {
-          const welcomeMsg: Message = {
-            role: 'assistant',
-            content: profile?.name 
-              ? `Hi ${profile.name}! I'm your investment advisor. ${profile.investment_strategy?.length > 0 ? "I can see your current portfolio allocation. " : ""}I can help you build a personalized investment strategy. What would you like to discuss?`
-              : "Hi! I'm your investment advisor. I can help you create a personalized portfolio allocation. What would you like to get started?"
-          };
-          setMessages([welcomeMsg]);
-        }
       } else {
         // Load from localStorage if not logged in
         const savedStrategy = localStorage.getItem('investment_strategy');
@@ -114,25 +104,9 @@ export default function Home() {
         if (savedUserInfo) {
           setUserInfo(JSON.parse(savedUserInfo));
         }
-
-        if (messages.length === 0) {
-          const welcomeMsg: Message = {
-            role: 'assistant',
-            content: "Hi! I'm your investment advisor. I can help you create a personalized portfolio allocation. Note: Your data won't be saved after you leave unless you sign in. What would you like to get started?"
-          };
-          setMessages([welcomeMsg]);
-        }
       }
     } catch (error) {
       console.error('Error loading investment data:', error);
-      // Still show welcome message even on error
-      if (messages.length === 0) {
-        const welcomeMsg: Message = {
-          role: 'assistant',
-          content: "Hi! I'm your investment advisor. I can help you create a personalized portfolio allocation. What would you like to get started?"
-        };
-        setMessages([welcomeMsg]);
-      }
     }
   };
 
@@ -338,32 +312,22 @@ export default function Home() {
   // Centered ChatGPT-like view (no portfolio yet)
   if (!showSplitView) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-gray-900 via-black to-gray-900 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-black flex items-center justify-center p-4">
         <div className={`w-full max-w-3xl transition-all duration-700 ease-in-out ${
           isAnimating ? 'translate-x-[40%] scale-90 opacity-50' : 'translate-x-0 scale-100 opacity-100'
         }`}>
           {/* Header */}
           <div className="text-center mb-12">
-            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 mb-6 animate-pulse">
-              <Sparkles size={40} className="text-white" />
-            </div>
-            <h1 className="text-4xl md:text-5xl font-bold text-white mb-4 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400">
-              Investment Advisor
+            <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
+              NORTHLINE FINANCE
             </h1>
             <p className="text-gray-400 text-lg">
-              Your personalized AI-powered portfolio strategist
+              AI-Powered Investment Strategy
             </p>
-            {!user && (
-              <div className="mt-4 mx-auto max-w-md">
-                <p className="text-blue-300/70 text-sm px-4 py-2 bg-blue-900/10 border border-blue-800/30 rounded-lg">
-                  💡 Not signed in - your portfolio won't be saved after you leave
-                </p>
-              </div>
-            )}
           </div>
 
           {/* Suggestion Cards */}
-          {messages.length === 1 && (
+          {messages.length === 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-8 animate-fade-in">
               {suggestionPrompts.map((prompt, idx) => {
                 const Icon = prompt.icon;
@@ -372,10 +336,9 @@ export default function Home() {
                     key={idx}
                     onClick={() => handleSuggestionClick(prompt.text)}
                     disabled={loading}
-                    className="group relative p-5 bg-gray-800/50 hover:bg-gray-800 border border-gray-700 hover:border-gray-600 rounded-2xl text-left transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-blue-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="group relative p-5 bg-gray-900/50 hover:bg-gray-900 border border-gray-800 hover:border-gray-700 rounded-xl text-left transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <div className={`absolute inset-0 bg-gradient-to-br ${prompt.color} opacity-0 group-hover:opacity-10 rounded-2xl transition-opacity duration-300`} />
-                    <Icon size={24} className={`text-gray-400 group-hover:text-blue-400 transition-colors duration-300 mb-3`} />
+                    <Icon size={20} className="text-gray-400 group-hover:text-white transition-colors duration-300 mb-3" />
                     <p className="text-gray-300 group-hover:text-white transition-colors duration-300 text-sm font-medium">
                       {prompt.text}
                     </p>
@@ -386,7 +349,7 @@ export default function Home() {
           )}
 
           {/* Chat Messages */}
-          <div className="bg-gray-900/50 border border-gray-800 rounded-3xl shadow-2xl backdrop-blur-xl overflow-hidden">
+          <div className="bg-gray-900/30 border border-gray-800 rounded-2xl shadow-2xl backdrop-blur-xl overflow-hidden">
             <div className="max-h-[50vh] overflow-y-auto p-6 space-y-4">
               {messages.map((message, index) => (
                 <div
@@ -394,10 +357,10 @@ export default function Home() {
                   className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} animate-slide-up`}
                 >
                   <div
-                    className={`max-w-[85%] rounded-2xl px-5 py-3 ${
+                    className={`max-w-[85%] rounded-xl px-5 py-3 ${
                       message.role === 'user'
-                        ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg shadow-blue-500/20'
-                        : 'bg-gray-800 text-gray-200 border border-gray-700'
+                        ? 'bg-white text-black shadow-lg'
+                        : 'bg-gray-800/50 text-gray-200 border border-gray-700/50'
                     }`}
                   >
                     <p className="text-sm md:text-base whitespace-pre-wrap leading-relaxed">{message.content}</p>
@@ -406,8 +369,8 @@ export default function Home() {
               ))}
               {loading && (
                 <div className="flex justify-start">
-                  <div className="bg-gray-800 border border-gray-700 rounded-2xl px-5 py-4 flex items-center gap-3">
-                    <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />
+                  <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl px-5 py-4 flex items-center gap-3">
+                    <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
                     <span className="text-gray-400 text-sm">Thinking...</span>
                   </div>
                 </div>
@@ -416,7 +379,7 @@ export default function Home() {
             </div>
 
             {/* Input Area */}
-            <div className="border-t border-gray-800 p-4 bg-gray-900/80 backdrop-blur-xl">
+            <div className="border-t border-gray-800 p-4 bg-gray-900/50 backdrop-blur-xl">
               <div className="flex gap-3">
                 <input
                   ref={inputRef}
@@ -425,25 +388,20 @@ export default function Home() {
                   onChange={(e) => setInput(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && !loading && handleSendMessage()}
                   placeholder="Tell me about your investment goals..."
-                  className="flex-1 px-6 py-4 bg-gray-800 border border-gray-700 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
+                  className="flex-1 px-6 py-4 bg-gray-800/50 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent transition-all duration-300"
                   disabled={loading}
                   autoFocus
                 />
                 <button
                   onClick={() => handleSendMessage()}
                   disabled={loading || !input.trim()}
-                  className="px-6 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-2xl hover:from-blue-700 hover:to-purple-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 hover:scale-105"
+                  className="px-6 py-4 bg-white text-black rounded-xl hover:bg-gray-200 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:scale-105"
                 >
                   <Send size={20} />
                 </button>
               </div>
             </div>
           </div>
-
-          {/* Footer */}
-          <p className="text-center text-gray-600 text-sm mt-6">
-            Powered by AI • Personalized for you
-          </p>
         </div>
       </div>
     );
@@ -463,23 +421,65 @@ export default function Home() {
           }`} style={{ transitionDelay: '200ms' }}>
             
             {/* Portfolio Visualization */}
-            <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6 flex-1 flex flex-col">
+            <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-6 flex-1 flex flex-col">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-bold text-white">Portfolio Allocation</h2>
-                {strategy.length > 0 && (
-                  <button
-                    onClick={() => {
-                      if (editMode) {
-                        setEditedStrategy(strategy);
-                      }
-                      setEditMode(!editMode);
-                    }}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm"
-                  >
-                    {editMode ? <X size={16} /> : <Edit3 size={16} />}
-                    {editMode ? 'Cancel' : 'Edit'}
-                  </button>
-                )}
+                <div className="flex items-center gap-2">
+                  {strategy.length > 0 && (
+                    <>
+                      <button
+                        onClick={() => {
+                          if (editMode) {
+                            setEditedStrategy(strategy);
+                          }
+                          setEditMode(!editMode);
+                        }}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-gray-800/50 text-white border border-gray-700/50 rounded-lg hover:bg-gray-800 transition-colors text-sm"
+                      >
+                        {editMode ? <X size={16} /> : <Edit3 size={16} />}
+                        {editMode ? 'Cancel' : 'Edit'}
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (confirm('Are you sure you want to delete your portfolio? This action cannot be undone.')) {
+                            try {
+                              if (user) {
+                                // Delete from database if logged in
+                                const { error } = await supabase
+                                  .from('profiles')
+                                  .update({
+                                    investment_strategy: [],
+                                    investment_user_info: null
+                                  })
+                                  .eq('id', user.id);
+
+                                if (error) throw error;
+                              } else {
+                                // Clear from localStorage if not logged in
+                                localStorage.removeItem('investment_strategy');
+                                localStorage.removeItem('investment_user_info');
+                              }
+
+                              setStrategy([]);
+                              setEditedStrategy([]);
+                              setUserInfo(null);
+                              setShowSplitView(false);
+                              setMessages([]);
+                            } catch (error) {
+                              console.error('Error deleting portfolio:', error);
+                              alert('Failed to delete portfolio. Please try again.');
+                            }
+                          }
+                        }}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-red-900/30 text-red-400 border border-red-800/50 rounded-lg hover:bg-red-900/50 transition-colors text-sm"
+                        title="Delete portfolio"
+                      >
+                        <Trash2 size={16} />
+                        Delete
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
 
               <div className="flex-1 flex items-center justify-center">
@@ -575,7 +575,7 @@ export default function Home() {
                   <button
                     onClick={handleSaveEdits}
                     disabled={totalPercentage === 0}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-white text-black rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Save size={16} />
                     Save Changes
@@ -585,7 +585,7 @@ export default function Home() {
             </div>
 
             {userInfo && Object.keys(userInfo).length > 0 && (
-              <div className="bg-blue-900/10 border border-blue-800/30 rounded-xl p-4">
+              <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-4">
                 <h3 className="text-white font-semibold mb-3 text-sm">Your Profile</h3>
                 <div className="grid grid-cols-2 gap-3">
                   {Object.entries(userInfo).map(([key, value]) => (
@@ -601,7 +601,7 @@ export default function Home() {
             <div className="flex gap-2">
               <button
                 onClick={exportPortfolio}
-                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700 transition-colors text-sm"
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-gray-900/30 text-gray-300 border border-gray-800 rounded-lg hover:bg-gray-900/50 transition-colors text-sm"
                 title="Export portfolio data"
               >
                 <Download size={16} />
@@ -617,7 +617,7 @@ export default function Home() {
                     content: 'Portfolio allocation copied to clipboard!'
                   }]);
                 }}
-                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700 transition-colors text-sm"
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-gray-900/30 text-gray-300 border border-gray-800 rounded-lg hover:bg-gray-900/50 transition-colors text-sm"
                 title="Copy to clipboard"
               >
                 <Share2 size={16} />
@@ -627,16 +627,13 @@ export default function Home() {
           </div>
 
           {/* Right Side - Chat - Animated */}
-          <div className={`bg-gray-900/50 border border-gray-800 rounded-xl flex flex-col overflow-hidden transition-all duration-700 ease-out ${
+          <div className={`bg-gray-900/30 border border-gray-800 rounded-xl flex flex-col overflow-hidden transition-all duration-700 ease-out ${
             isAnimating ? 'translate-x-[100%] opacity-0 scale-90' : 'translate-x-0 opacity-100 scale-100'
           }`} style={{ transitionDelay: '100ms' }}>
             <div className="p-4 border-b border-gray-800">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center">
-                  <Sparkles size={20} className="text-white" />
-                </div>
                 <div>
-                  <h3 className="text-white font-semibold">Investment Advisor</h3>
+                  <h3 className="text-white font-semibold">Investment Strategy</h3>
                   <p className="text-gray-500 text-xs">Personalized portfolio guidance</p>
                 </div>
               </div>
@@ -649,10 +646,10 @@ export default function Home() {
                   className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className={`max-w-[80%] rounded-2xl px-4 py-3 ${
+                    className={`max-w-[80%] rounded-xl px-4 py-3 ${
                       message.role === 'user'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-800 text-gray-200'
+                        ? 'bg-white text-black'
+                        : 'bg-gray-800/50 text-gray-200 border border-gray-700/50'
                     }`}
                   >
                     <p className="text-sm whitespace-pre-wrap">{message.content}</p>
@@ -661,7 +658,7 @@ export default function Home() {
               ))}
               {loading && (
                 <div className="flex justify-start">
-                  <div className="bg-gray-800 rounded-2xl px-4 py-3">
+                  <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl px-4 py-3">
                     <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
                   </div>
                 </div>
@@ -678,7 +675,7 @@ export default function Home() {
                       <button
                         key={idx}
                         onClick={() => handleQuickAction(action.label)}
-                        className="flex items-center gap-2 px-3 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors text-sm"
+                        className="flex items-center gap-2 px-3 py-2 bg-gray-800/50 hover:bg-gray-800 text-gray-300 border border-gray-700/50 rounded-lg transition-colors text-sm"
                       >
                         <Icon size={14} />
                         <span className="truncate">{action.label}</span>
@@ -698,13 +695,13 @@ export default function Home() {
                   onFocus={() => setShowQuickActions(true)}
                   onBlur={() => setTimeout(() => setShowQuickActions(false), 200)}
                   placeholder="Ask about portfolio allocation..."
-                  className="flex-1 px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-600 text-sm"
+                  className="flex-1 px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white text-sm"
                   disabled={loading}
                 />
                 <button
                   onClick={() => handleSendMessage()}
                   disabled={loading || !input.trim()}
-                  className="px-4 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-3 bg-white text-black rounded-xl hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Send size={20} />
                 </button>

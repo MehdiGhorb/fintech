@@ -64,11 +64,11 @@ export default function Navigation() {
   };
 
   return (
-    <nav className="border-b border-gray-900 bg-black/50 backdrop-blur-sm sticky top-0 z-50">
+    <nav className="border-b border-gray-900 bg-black backdrop-blur-sm sticky top-0 z-50">
       <div className="w-full px-6 py-4">
         <div className="flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 flex-shrink-0" aria-label="Northline Finance home">
-            <span className="text-base font-medium text-gray-400">Northline Finance</span>
+            <span className="text-base font-bold text-white">NORTHLINE FINANCE</span>
           </Link>
           
           <div className="flex items-center gap-4 ml-auto">
