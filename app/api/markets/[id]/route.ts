@@ -5,15 +5,35 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   const { id } = params;
+  const { searchParams } = new URL(request.url);
+  const timeRange = searchParams.get('range') || '1Y'; // Default 1 year
+
+  // Calculate days based on time range
+  const daysMap: { [key: string]: number } = {
+    '1D': 1,
+    '1W': 7,
+    '1M': 30,
+    '3M': 90,
+    '6M': 180,
+    '1Y': 365,
+    '5Y': 1825,
+    'MAX': 7300, // ~20 years (from 2005)
+  };
+  const days = daysMap[timeRange] || 365;
 
   try {
     // Check if it's a crypto or stock
-    const isCrypto = ['bitcoin', 'ethereum', 'binancecoin', 'cardano', 'solana'].includes(id.toLowerCase());
+    const cryptoIds = [
+      'bitcoin', 'ethereum', 'tether', 'binancecoin', 'ripple', 'cardano', 
+      'solana', 'polkadot', 'dogecoin', 'avalanche-2', 'polygon', 'shiba-inu',
+      'chainlink', 'litecoin', 'uniswap', 'stellar', 'monero'
+    ];
+    const isCrypto = cryptoIds.includes(id.toLowerCase());
 
     if (isCrypto) {
-      // Fetch crypto data from CoinGecko
+      // Fetch crypto data from CoinGecko with extended range
       const response = await fetch(
-        `https://api.coingecko.com/api/v3/coins/${id}/market_chart?vs_currency=usd&days=365`
+        `https://api.coingecko.com/api/v3/coins/${id}/market_chart?vs_currency=usd&days=${days}`
       );
       const data = await response.json();
 
@@ -23,9 +43,9 @@ export async function GET(
       );
       const currentData = await currentResponse.json();
 
-      // Fetch OHLC data
+      // Fetch OHLC data (max available)
       const ohlcResponse = await fetch(
-        `https://api.coingecko.com/api/v3/coins/${id}/ohlc?vs_currency=usd&days=365`
+        `https://api.coingecko.com/api/v3/coins/${id}/ohlc?vs_currency=usd&days=${Math.min(days, 365)}`
       );
       const ohlcData = await ohlcResponse.json();
 

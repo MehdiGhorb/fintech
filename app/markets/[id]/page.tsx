@@ -57,14 +57,16 @@ interface AssetDetails {
 export default function AssetDetailPage({ params }: { params: { id: string } }) {
   const [asset, setAsset] = useState<AssetDetails | null>(null);
   const [loading, setLoading] = useState(true);
+  const [timeRange, setTimeRange] = useState('1Y');
 
   useEffect(() => {
     fetchAssetDetails();
-  }, [params.id]);
+  }, [params.id, timeRange]);
 
   const fetchAssetDetails = async () => {
+    setLoading(true);
     try {
-      const response = await fetch(`/api/markets/${params.id}`);
+      const response = await fetch(`/api/markets/${params.id}?range=${timeRange}`);
       const data = await response.json();
       setAsset(data);
     } catch (error) {
@@ -73,6 +75,17 @@ export default function AssetDetailPage({ params }: { params: { id: string } }) 
       setLoading(false);
     }
   };
+
+  const timeRanges = [
+    { label: '1D', value: '1D' },
+    { label: '1W', value: '1W' },
+    { label: '1M', value: '1M' },
+    { label: '3M', value: '3M' },
+    { label: '6M', value: '6M' },
+    { label: '1Y', value: '1Y' },
+    { label: '5Y', value: '5Y' },
+    { label: 'MAX', value: 'MAX' },
+  ];
 
   if (loading) {
     return (
@@ -121,16 +134,18 @@ export default function AssetDetailPage({ params }: { params: { id: string } }) 
         
         <div className="flex items-baseline gap-4">
           <div className="text-5xl font-bold">
-            ${asset.price.toLocaleString(undefined, { 
-              minimumFractionDigits: 2, 
-              maximumFractionDigits: asset.price > 100 ? 2 : 6 
-            })}
+            ${typeof asset.price === 'number' 
+              ? asset.price.toLocaleString(undefined, { 
+                  minimumFractionDigits: 2, 
+                  maximumFractionDigits: asset.price > 100 ? 2 : 6 
+                })
+              : '0.00'}
           </div>
           <div className={`flex items-center gap-2 text-2xl font-medium ${
             asset.change24h >= 0 ? 'text-green-400' : 'text-red-400'
           }`}>
             {asset.change24h >= 0 ? <TrendingUp size={28} /> : <TrendingDown size={28} />}
-            {asset.change24h >= 0 ? '+' : ''}{asset.change24h.toFixed(2)}%
+            {asset.change24h >= 0 ? '+' : ''}{typeof asset.change24h === 'number' ? asset.change24h.toFixed(2) : '0.00'}%
           </div>
         </div>
       </div>
@@ -148,29 +163,48 @@ export default function AssetDetailPage({ params }: { params: { id: string } }) 
         <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4">
           <div className="text-gray-400 text-sm mb-1">24h Volume</div>
           <div className="text-xl font-bold">
-            ${(asset.volume24h / 1e6).toFixed(2)}M
+            ${typeof asset.volume24h === 'number' ? (asset.volume24h / 1e6).toFixed(2) : '0'}M
           </div>
         </div>
         <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4">
           <div className="text-gray-400 text-sm mb-1">24h High</div>
           <div className="text-xl font-bold text-green-400">
-            ${asset.high24h.toFixed(2)}
+            ${typeof asset.high24h === 'number' ? asset.high24h.toFixed(2) : '0.00'}
           </div>
         </div>
         <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4">
           <div className="text-gray-400 text-sm mb-1">24h Low</div>
           <div className="text-xl font-bold text-red-400">
-            ${asset.low24h.toFixed(2)}
+            ${typeof asset.low24h === 'number' ? asset.low24h.toFixed(2) : '0.00'}
           </div>
         </div>
       </div>
 
       {/* Chart Section */}
       <div className="mb-8">
-        <AdvancedChart 
-          data={asset.historicalData}
-          symbol={asset.symbol}
-        />
+        <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-6">
+          {/* Time Range Selector */}
+          <div className="flex justify-end mb-4 gap-2">
+            {timeRanges.map((range) => (
+              <button
+                key={range.value}
+                onClick={() => setTimeRange(range.value)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  timeRange === range.value
+                    ? 'bg-white text-black'
+                    : 'bg-gray-800/50 text-gray-400 hover:bg-gray-800 border border-gray-700/50'
+                }`}
+              >
+                {range.label}
+              </button>
+            ))}
+          </div>
+          
+          <AdvancedChart 
+            data={asset.historicalData}
+            symbol={asset.symbol}
+          />
+        </div>
       </div>
 
       {/* Statistics and Cost Information */}
