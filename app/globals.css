@@ -3,33 +3,86 @@
 @tailwind utilities;
 
 :root {
-  --background: #0b0c0e;
-  --foreground: #e4e4e7;
+  --ink: 10 10 10;
+  --paper: 250 250 250;
+  --line: 228 228 228;
+  --mute: 115 115 115;
+  --accent: 10 10 10;
+  color-scheme: light;
+}
+
+.dark {
+  --ink: 245 245 245;
+  --paper: 5 5 5;
+  --line: 28 28 28;
+  --mute: 163 163 163;
+  --accent: 245 245 245;
+  color-scheme: dark;
 }
 
 html,
 body {
-  height: 100%;
+  min-height: 100%;
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: rgb(var(--paper));
+  color: rgb(var(--ink));
+}
+
+::selection {
+  background: rgb(var(--ink));
+  color: rgb(var(--paper));
+}
+
+.dark ::selection {
+  background: rgb(var(--ink));
+  color: rgb(var(--paper));
+}
+
+input,
+textarea,
+select,
+button {
+  font: inherit;
+}
+
+.desk-grid {
+  background-image:
+    linear-gradient(rgb(var(--line)) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(var(--line)) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+.react-flow__attribution {
+  display: none;
+}
+
+.react-flow__controls {
+  box-shadow: none !important;
+  border: 1px solid rgb(var(--line));
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.react-flow__controls-button {
+  background: rgb(var(--paper)) !important;
+  border-bottom: 1px solid rgb(var(--line)) !important;
+  fill: rgb(var(--ink)) !important;
+  width: 28px !important;
+  height: 28px !important;
+}
+
+.react-flow__minimap {
+  background: rgb(var(--paper)) !important;
 }
 
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-::-webkit-scrollbar-track {
-  background: #111;
-}
-::-webkit-scrollbar-thumb {
-  background: #2a2a2a;
-  border-radius: 4px;
+  width: 10px;
+  height: 10px;
 }
 
-.prose-report {
-  font-family: ui-sans-serif, system-ui, sans-serif;
+::-webkit-scrollbar-thumb {
+  background: rgb(var(--line));
+  border-radius: 999px;
 }
