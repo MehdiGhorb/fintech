@@ -7,22 +7,30 @@ import {
   MiniMap,
   ReactFlow,
   addEdge,
-  applyEdgeChanges,
-  applyNodeChanges,
+  useEdgesState,
+  useNodesState,
   type Connection,
-  type Edge,
   type Node,
-  type NodeChange,
-  type EdgeChange,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useTheme } from "next-themes";
+import { useEffect } from "react";
+import { AgentNode } from "@/components/agent-node";
 import { AGENT_META, defaultConfig } from "@/lib/catalog";
 import { uid } from "@/lib/storage";
-import type { AgentNodeData, AgentType, Workspace } from "@/lib/types";
-import { AgentNode } from "@/components/agent-node";
+import type { AgentType, Workspace } from "@/lib/types";
 
 const nodeTypes = { agent: AgentNode };
+
+function toFlowNodes(nodes: Workspace["nodes"]): Node[] {
+  return nodes.map((node) => ({
+    ...node,
+    type: "agent",
+    style: { width: 220, height: 92 },
+    width: 220,
+    height: 92,
+  }));
+}
 
 export function WorkspaceBoard({
   workspace,
@@ -35,26 +43,36 @@ export function WorkspaceBoard({
   onChange: (nodes: Workspace["nodes"], edges: Workspace["edges"]) => void;
 }) {
   const { resolvedTheme } = useTheme();
-  const nodes = workspace.nodes as Node[];
-  const edges = workspace.edges as Edge[];
   const colorMode = resolvedTheme === "light" ? "light" : "dark";
+  const [nodes, setNodes, onNodesChange] = useNodesState(toFlowNodes(workspace.nodes));
+  const [edges, setEdges, onEdgesChange] = useEdgesState(workspace.edges);
 
-  function persistNodes(next: Node[]) {
+  useEffect(() => {
+    setNodes((current) => {
+      const incoming = toFlowNodes(workspace.nodes);
+      const sameIds =
+        current.length === incoming.length && current.every((node, i) => node.id === incoming[i]?.id);
+      if (!sameIds) return incoming;
+      return current.map((node) => {
+        const next = incoming.find((item) => item.id === node.id);
+        if (!next) return node;
+        return { ...node, data: next.data };
+      });
+    });
+    setEdges(workspace.edges);
+  }, [workspace.nodes, workspace.edges, setNodes, setEdges]);
+
+  function save(nextNodes: Node[], nextEdges: typeof edges) {
     onChange(
-      next.map((node) => ({
+      nextNodes.map((node) => ({
         id: node.id,
         type: "agent" as const,
         position: node.position,
-        data: node.data as AgentNodeData,
-      })),
-      workspace.edges,
-    );
-  }
-
-  function persistEdges(next: Edge[]) {
-    onChange(
-      workspace.nodes,
-      next.map((edge) => ({
+        data: node.data as Workspace["nodes"][number]["data"],
+        width: 220,
+        height: 92,
+      })) as Workspace["nodes"],
+      nextEdges.map((edge) => ({
         id: edge.id,
         source: String(edge.source),
         target: String(edge.target),
@@ -64,44 +82,44 @@ export function WorkspaceBoard({
 
   return (
     <div className="relative h-full w-full">
-      {nodes.length === 0 && (
+      {workspace.nodes.length === 0 && (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
-          <div className="rounded-lg border border-line bg-paper/90 px-5 py-4 text-center">
+          <div className="rounded-lg border border-line bg-paper px-5 py-4 text-center">
             <p className="text-sm font-medium">This board is empty</p>
-            <p className="mt-1 text-xs text-mute">Use + New agent, then drag and connect the boxes.</p>
+            <p className="mt-1 text-xs text-mute">Click + New agent, pick a type, and the box appears here.</p>
           </div>
         </div>
       )}
       <ReactFlow
         className="h-full w-full"
         nodes={nodes}
-        edges={edges.map((edge) => ({
-          ...edge,
-          animated: true,
-          style: { stroke: "currentColor", strokeWidth: 1.25 },
-        }))}
+        edges={edges}
         nodeTypes={nodeTypes}
         colorMode={colorMode}
-        fitView={nodes.length > 0}
-        fitViewOptions={{ padding: 0.25 }}
         minZoom={0.4}
         maxZoom={1.6}
+        defaultViewport={{ x: 80, y: 60, zoom: 1 }}
         proOptions={{ hideAttribution: true }}
-        onNodesChange={(changes: NodeChange[]) => {
-          persistNodes(applyNodeChanges(changes, nodes));
+        nodesDraggable
+        nodesConnectable
+        elementsSelectable
+        onNodesChange={onNodesChange}
+        onEdgesChange={(changes) => {
+          onEdgesChange(changes);
         }}
-        onEdgesChange={(changes: EdgeChange[]) => {
-          persistEdges(applyEdgeChanges(changes, edges));
-        }}
+        onNodeDragStop={(_, _node, all) => save(all, edges)}
         onConnect={(connection: Connection) => {
-          persistEdges(addEdge({ ...connection, animated: true }, edges));
+          setEdges((current) => {
+            const next = addEdge(connection, current);
+            save(nodes, next);
+            return next;
+          });
         }}
         onPaneClick={() => onSelect(null)}
         onNodeClick={(_, node) => onSelect(node.id)}
-        defaultEdgeOptions={{ type: "smoothstep" }}
+        defaultEdgeOptions={{ type: "smoothstep", animated: true }}
       >
         <Background
-          id="dots"
           variant={BackgroundVariant.Dots}
           gap={22}
           size={1.4}
@@ -120,7 +138,7 @@ export function addAgentNode(type: AgentType, existingCount: number): Workspace[
   return {
     id: uid("ag"),
     type: "agent",
-    position: { x: 80 + col * 280, y: 80 + row * 160 },
+    position: { x: 72 + col * 260, y: 72 + row * 140 },
     data: {
       type,
       config: defaultConfig(type),

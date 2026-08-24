@@ -13,7 +13,7 @@ export function AgentNode({ data, selected }: NodeProps) {
 
   return (
     <div
-      className={`w-[220px] rounded-lg border bg-paper text-ink shadow-sm ${
+      className={`box-border h-[92px] w-[220px] rounded-lg border bg-paper text-ink ${
         selected ? "border-ink" : "border-line"
       }`}
     >

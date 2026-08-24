@@ -39,13 +39,22 @@ export default function WorkspacePage() {
     const saved = { ...next, updatedAt: new Date().toISOString() };
     setWorkspace(saved);
     upsertWorkspace(saved);
+    return saved;
   }
 
   function createAgent(type: AgentType) {
-    if (!workspace) return;
-    const node = addAgentNode(type, workspace.nodes.length);
-    commit({ ...workspace, nodes: [...workspace.nodes, node] });
-    setSelectedId(node.id);
+    setWorkspace((current) => {
+      if (!current) return current;
+      const node = addAgentNode(type, current.nodes.length);
+      const saved = {
+        ...current,
+        nodes: [...current.nodes, node],
+        updatedAt: new Date().toISOString(),
+      };
+      upsertWorkspace(saved);
+      setSelectedId(node.id);
+      return saved;
+    });
     setPicker(false);
   }
 
@@ -121,15 +130,42 @@ export default function WorkspacePage() {
 
       <div className="relative flex min-h-0 flex-1">
         {tab === "board" ? (
-          <>
-            <div className="relative min-h-0 min-w-0 flex-1">
-              <div className="absolute inset-0">
-                <WorkspaceBoard
-                  workspace={workspace}
-                  selectedId={selectedId}
-                  onSelect={setSelectedId}
-                  onChange={(nodes, edges) => commit({ ...workspace, nodes, edges })}
-                />
+          <div className="flex min-h-0 min-w-0 flex-1">
+            <div className="flex min-w-0 flex-1 flex-col">
+              <div className="flex flex-wrap items-center gap-2 border-b border-line bg-paper px-4 py-2">
+                {workspace.nodes.length === 0 ? (
+                  <p className="text-xs text-mute">No agents yet</p>
+                ) : (
+                  workspace.nodes.map((node) => (
+                    <button
+                      key={node.id}
+                      type="button"
+                      onClick={() => setSelectedId(node.id)}
+                      className={`rounded-md border px-2.5 py-1 text-xs ${
+                        selectedId === node.id ? "border-ink bg-ink text-paper" : "border-line"
+                      }`}
+                    >
+                      {node.data.config.name}
+                    </button>
+                  ))
+                )}
+              </div>
+              <div className="relative min-h-0 flex-1">
+                <div className="absolute inset-0">
+                  <WorkspaceBoard
+                    workspace={workspace}
+                    selectedId={selectedId}
+                    onSelect={setSelectedId}
+                    onChange={(nodes, edges) =>
+                      setWorkspace((current) => {
+                        if (!current) return current;
+                        const saved = { ...current, nodes, edges, updatedAt: new Date().toISOString() };
+                        upsertWorkspace(saved);
+                        return saved;
+                      })
+                    }
+                  />
+                </div>
               </div>
             </div>
             {selected && (
@@ -141,7 +177,7 @@ export default function WorkspacePage() {
                 onDelete={removeAgent}
               />
             )}
-          </>
+          </div>
         ) : (
           <MarketPane instrument={workspace.instrument} />
         )}
