@@ -122,13 +122,15 @@ export default function WorkspacePage() {
       <div className="relative flex min-h-0 flex-1">
         {tab === "board" ? (
           <>
-            <div className="desk-grid min-w-0 flex-1">
-              <WorkspaceBoard
-                workspace={workspace}
-                selectedId={selectedId}
-                onSelect={setSelectedId}
-                onChange={(nodes, edges) => commit({ ...workspace, nodes, edges })}
-              />
+            <div className="relative min-h-0 min-w-0 flex-1">
+              <div className="absolute inset-0">
+                <WorkspaceBoard
+                  workspace={workspace}
+                  selectedId={selectedId}
+                  onSelect={setSelectedId}
+                  onChange={(nodes, edges) => commit({ ...workspace, nodes, edges })}
+                />
+              </div>
             </div>
             {selected && (
               <AgentInspector

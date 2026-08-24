@@ -6,26 +6,26 @@ import {
   Controls,
   MiniMap,
   ReactFlow,
-  ReactFlowProvider,
   addEdge,
-  useEdgesState,
-  useNodesState,
+  applyEdgeChanges,
+  applyNodeChanges,
   type Connection,
   type Edge,
   type Node,
+  type NodeChange,
+  type EdgeChange,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { useCallback, useEffect, useMemo } from "react";
-import { AgentNode } from "@/components/agent-node";
+import { useTheme } from "next-themes";
 import { AGENT_META, defaultConfig } from "@/lib/catalog";
 import { uid } from "@/lib/storage";
 import type { AgentNodeData, AgentType, Workspace } from "@/lib/types";
+import { AgentNode } from "@/components/agent-node";
 
 const nodeTypes = { agent: AgentNode };
 
 export function WorkspaceBoard({
   workspace,
-  selectedId,
   onSelect,
   onChange,
 }: {
@@ -34,79 +34,83 @@ export function WorkspaceBoard({
   onSelect: (id: string | null) => void;
   onChange: (nodes: Workspace["nodes"], edges: Workspace["edges"]) => void;
 }) {
-  const [nodes, setNodes, onNodesChange] = useNodesState(workspace.nodes as Node[]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(workspace.edges as Edge[]);
+  const { resolvedTheme } = useTheme();
+  const nodes = workspace.nodes as Node[];
+  const edges = workspace.edges as Edge[];
+  const colorMode = resolvedTheme === "light" ? "light" : "dark";
 
-  useEffect(() => {
-    setNodes(workspace.nodes as Node[]);
-    setEdges(workspace.edges as Edge[]);
-  }, [workspace.id, setNodes, setEdges]);
-
-  const persist = useCallback(
-    (nextNodes: Node[], nextEdges: Edge[]) => {
-      onChange(
-        nextNodes.map((node) => ({
-          id: node.id,
-          type: "agent" as const,
-          position: node.position,
-          data: node.data as AgentNodeData,
-        })),
-        nextEdges.map((edge) => ({
-          id: edge.id,
-          source: edge.source,
-          target: edge.target,
-        })),
-      );
-    },
-    [onChange],
-  );
-
-  const onConnect = useCallback(
-    (connection: Connection) => {
-      setEdges((current) => {
-        const next = addEdge({ ...connection, animated: true, style: { stroke: "rgb(var(--ink))" } }, current);
-        persist(nodes, next);
-        return next;
-      });
-    },
-    [nodes, persist, setEdges],
-  );
-
-  useEffect(() => {
-    persist(nodes, edges);
-  }, [nodes, edges, persist]);
-
-  const styledEdges = useMemo(
-    () =>
-      edges.map((edge) => ({
-        ...edge,
-        animated: true,
-        style: { stroke: "rgb(var(--ink))", strokeWidth: 1.25 },
+  function persistNodes(next: Node[]) {
+    onChange(
+      next.map((node) => ({
+        id: node.id,
+        type: "agent" as const,
+        position: node.position,
+        data: node.data as AgentNodeData,
       })),
-    [edges],
-  );
+      workspace.edges,
+    );
+  }
+
+  function persistEdges(next: Edge[]) {
+    onChange(
+      workspace.nodes,
+      next.map((edge) => ({
+        id: edge.id,
+        source: String(edge.source),
+        target: String(edge.target),
+      })),
+    );
+  }
 
   return (
-    <ReactFlowProvider>
-    <ReactFlow
-      nodes={nodes}
-      edges={styledEdges}
-      nodeTypes={nodeTypes}
-      onNodesChange={onNodesChange}
-      onEdgesChange={onEdgesChange}
-      onNodeDragStop={(_, _node, all) => persist(all, edges)}
-      onConnect={onConnect}
-      onPaneClick={() => onSelect(null)}
-      onNodeClick={(_, node) => onSelect(node.id)}
-      fitView
-      proOptions={{ hideAttribution: true }}
-      colorMode="system"
-    >
-      <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="rgb(var(--line))" />
-      <Controls showInteractive={false} />
-      <MiniMap pannable zoomable maskColor="transparent" />
-    </ReactFlow>
-    </ReactFlowProvider>
+    <div className="relative h-full w-full">
+      {nodes.length === 0 && (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+          <div className="rounded-lg border border-line bg-paper/90 px-5 py-4 text-center">
+            <p className="text-sm font-medium">This board is empty</p>
+            <p className="mt-1 text-xs text-mute">Use + New agent, then drag and connect the boxes.</p>
+          </div>
+        </div>
+      )}
+      <ReactFlow
+        className="h-full w-full"
+        nodes={nodes}
+        edges={edges.map((edge) => ({
+          ...edge,
+          animated: true,
+          style: { stroke: "currentColor", strokeWidth: 1.25 },
+        }))}
+        nodeTypes={nodeTypes}
+        colorMode={colorMode}
+        fitView={nodes.length > 0}
+        fitViewOptions={{ padding: 0.25 }}
+        minZoom={0.4}
+        maxZoom={1.6}
+        proOptions={{ hideAttribution: true }}
+        onNodesChange={(changes: NodeChange[]) => {
+          persistNodes(applyNodeChanges(changes, nodes));
+        }}
+        onEdgesChange={(changes: EdgeChange[]) => {
+          persistEdges(applyEdgeChanges(changes, edges));
+        }}
+        onConnect={(connection: Connection) => {
+          persistEdges(addEdge({ ...connection, animated: true }, edges));
+        }}
+        onPaneClick={() => onSelect(null)}
+        onNodeClick={(_, node) => onSelect(node.id)}
+        defaultEdgeOptions={{ type: "smoothstep" }}
+      >
+        <Background
+          id="dots"
+          variant={BackgroundVariant.Dots}
+          gap={22}
+          size={1.4}
+          color={colorMode === "dark" ? "#3a3a3a" : "#d4d4d4"}
+        />
+        <Controls showInteractive={false} />
+        <MiniMap pannable zoomable />
+      </ReactFlow>
+    </div>
   );
 }
 
