@@ -6,7 +6,6 @@ import {
   Controls,
   MiniMap,
   ReactFlow,
-  addEdge,
   useEdgesState,
   useNodesState,
   type Connection,
@@ -14,7 +13,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useTheme } from "next-themes";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { AgentNode } from "@/components/agent-node";
 import { AGENT_META, defaultConfig } from "@/lib/catalog";
 import { uid } from "@/lib/storage";
@@ -24,8 +23,10 @@ const nodeTypes = { agent: AgentNode };
 
 function toFlowNodes(nodes: Workspace["nodes"]): Node[] {
   return nodes.map((node) => ({
-    ...node,
+    id: node.id,
     type: "agent",
+    position: node.position,
+    data: node.data,
     style: { width: 220, height: 92 },
     width: 220,
     height: 92,
@@ -35,50 +36,36 @@ function toFlowNodes(nodes: Workspace["nodes"]): Node[] {
 export function WorkspaceBoard({
   workspace,
   onSelect,
-  onChange,
+  onMoveNode,
+  onConnectAgents,
 }: {
   workspace: Workspace;
   selectedId: string | null;
   onSelect: (id: string | null) => void;
-  onChange: (nodes: Workspace["nodes"], edges: Workspace["edges"]) => void;
+  onMoveNode: (id: string, position: { x: number; y: number }) => void;
+  onConnectAgents: (source: string, target: string) => void;
 }) {
   const { resolvedTheme } = useTheme();
   const colorMode = resolvedTheme === "light" ? "light" : "dark";
+  const dragging = useRef(false);
   const [nodes, setNodes, onNodesChange] = useNodesState(toFlowNodes(workspace.nodes));
   const [edges, setEdges, onEdgesChange] = useEdgesState(workspace.edges);
 
   useEffect(() => {
+    if (dragging.current) return;
+    const incoming = toFlowNodes(workspace.nodes);
     setNodes((current) => {
-      const incoming = toFlowNodes(workspace.nodes);
-      const sameIds =
-        current.length === incoming.length && current.every((node, i) => node.id === incoming[i]?.id);
-      if (!sameIds) return incoming;
-      return current.map((node) => {
-        const next = incoming.find((item) => item.id === node.id);
-        if (!next) return node;
-        return { ...node, data: next.data };
+      const localById = new Map(current.map((node) => [node.id, node]));
+      return incoming.map((node) => {
+        const local = localById.get(node.id);
+        return local ? { ...local, data: node.data, position: node.position } : node;
       });
     });
-    setEdges(workspace.edges);
-  }, [workspace.nodes, workspace.edges, setNodes, setEdges]);
+  }, [workspace.nodes, setNodes]);
 
-  function save(nextNodes: Node[], nextEdges: typeof edges) {
-    onChange(
-      nextNodes.map((node) => ({
-        id: node.id,
-        type: "agent" as const,
-        position: node.position,
-        data: node.data as Workspace["nodes"][number]["data"],
-        width: 220,
-        height: 92,
-      })) as Workspace["nodes"],
-      nextEdges.map((edge) => ({
-        id: edge.id,
-        source: String(edge.source),
-        target: String(edge.target),
-      })),
-    );
-  }
+  useEffect(() => {
+    setEdges(workspace.edges);
+  }, [workspace.edges, setEdges]);
 
   return (
     <div className="relative h-full w-full">
@@ -104,16 +91,17 @@ export function WorkspaceBoard({
         nodesConnectable
         elementsSelectable
         onNodesChange={onNodesChange}
-        onEdgesChange={(changes) => {
-          onEdgesChange(changes);
+        onEdgesChange={onEdgesChange}
+        onNodeDragStart={() => {
+          dragging.current = true;
         }}
-        onNodeDragStop={(_, _node, all) => save(all, edges)}
+        onNodeDragStop={(_, node) => {
+          dragging.current = false;
+          onMoveNode(node.id, node.position);
+        }}
         onConnect={(connection: Connection) => {
-          setEdges((current) => {
-            const next = addEdge(connection, current);
-            save(nodes, next);
-            return next;
-          });
+          if (!connection.source || !connection.target) return;
+          onConnectAgents(connection.source, connection.target);
         }}
         onPaneClick={() => onSelect(null)}
         onNodeClick={(_, node) => onSelect(node.id)}

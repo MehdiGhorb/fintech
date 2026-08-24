@@ -7,7 +7,7 @@ import { AgentInspector } from "@/components/agent-inspector";
 import { AppHeader } from "@/components/app-header";
 import { MarketPane } from "@/components/market-pane";
 import { AgentPicker, WorkspaceBoard, addAgentNode } from "@/components/workspace-board";
-import { getWorkspace, upsertWorkspace } from "@/lib/storage";
+import { getWorkspace, uid, upsertWorkspace } from "@/lib/storage";
 import type { AgentConfig, AgentType, Workspace } from "@/lib/types";
 
 type Tab = "board" | "market";
@@ -35,47 +35,60 @@ export default function WorkspacePage() {
     [workspace, selectedId],
   );
 
-  function commit(next: Workspace) {
-    const saved = { ...next, updatedAt: new Date().toISOString() };
-    setWorkspace(saved);
-    upsertWorkspace(saved);
-    return saved;
+  function patch(mutator: (current: Workspace) => Workspace) {
+    setWorkspace((current) => {
+      if (!current) return current;
+      const saved = { ...mutator(current), updatedAt: new Date().toISOString() };
+      upsertWorkspace(saved);
+      return saved;
+    });
   }
 
   function createAgent(type: AgentType) {
-    setWorkspace((current) => {
-      if (!current) return current;
+    patch((current) => {
       const node = addAgentNode(type, current.nodes.length);
-      const saved = {
-        ...current,
-        nodes: [...current.nodes, node],
-        updatedAt: new Date().toISOString(),
-      };
-      upsertWorkspace(saved);
       setSelectedId(node.id);
-      return saved;
+      return { ...current, nodes: [...current.nodes, node] };
     });
     setPicker(false);
   }
 
   function updateConfig(config: AgentConfig) {
-    if (!workspace || !selectedId) return;
-    commit({
-      ...workspace,
-      nodes: workspace.nodes.map((node) =>
+    if (!selectedId) return;
+    patch((current) => ({
+      ...current,
+      nodes: current.nodes.map((node) =>
         node.id === selectedId ? { ...node, data: { ...node.data, config } } : node,
       ),
-    });
+    }));
   }
 
   function removeAgent() {
-    if (!workspace || !selectedId) return;
-    commit({
-      ...workspace,
-      nodes: workspace.nodes.filter((node) => node.id !== selectedId),
-      edges: workspace.edges.filter((edge) => edge.source !== selectedId && edge.target !== selectedId),
-    });
+    if (!selectedId) return;
+    const id = selectedId;
+    patch((current) => ({
+      ...current,
+      nodes: current.nodes.filter((node) => node.id !== id),
+      edges: current.edges.filter((edge) => edge.source !== id && edge.target !== id),
+    }));
     setSelectedId(null);
+  }
+
+  function moveNode(id: string, position: { x: number; y: number }) {
+    patch((current) => ({
+      ...current,
+      nodes: current.nodes.map((node) => (node.id === id ? { ...node, position } : node)),
+    }));
+  }
+
+  function connectAgents(source: string, target: string) {
+    patch((current) => {
+      if (current.edges.some((edge) => edge.source === source && edge.target === target)) return current;
+      return {
+        ...current,
+        edges: [...current.edges, { id: uid("e"), source, target }],
+      };
+    });
   }
 
   if (missing) {
@@ -156,14 +169,8 @@ export default function WorkspacePage() {
                     workspace={workspace}
                     selectedId={selectedId}
                     onSelect={setSelectedId}
-                    onChange={(nodes, edges) =>
-                      setWorkspace((current) => {
-                        if (!current) return current;
-                        const saved = { ...current, nodes, edges, updatedAt: new Date().toISOString() };
-                        upsertWorkspace(saved);
-                        return saved;
-                      })
-                    }
+                    onMoveNode={moveNode}
+                    onConnectAgents={connectAgents}
                   />
                 </div>
               </div>
