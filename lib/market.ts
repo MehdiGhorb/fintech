@@ -1,121 +1,248 @@
-import type { Instrument } from "./types";
+import { SYMBOLS } from "./universe";
+import type { Bar } from "./types";
 
-export type Candle = {
-  date: string;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume: number;
+const UA =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
+
+const FETCH_INIT: RequestInit = {
+  headers: {
+    "User-Agent": UA,
+    Accept: "application/json,text/csv,*/*",
+    Referer: "https://www.nasdaq.com/",
+  },
+  cache: "no-store",
 };
 
-function hash(input: string) {
-  let value = 2166136261;
-  for (let i = 0; i < input.length; i += 1) {
-    value ^= input.charCodeAt(i);
-    value = Math.imul(value, 16777619);
-  }
-  return value >>> 0;
+export type SeriesPack = {
+  bars: Record<string, Bar[]>;
+  source: string;
+  livePrice?: number;
+};
+
+type Cache = { at: number; pack: SeriesPack };
+let cache: Cache | null = null;
+const CACHE_MS = 5 * 60 * 1000;
+
+function ymd(tsSec: number) {
+  return new Date(tsSec * 1000).toLocaleDateString("en-CA", { timeZone: "America/New_York" });
 }
 
-function rng(seed: number) {
-  let state = seed || 1;
-  return () => {
-    state = (state * 1664525 + 1013904223) % 4294967296;
-    return state / 4294967296;
+function todayNY() {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+}
+
+function yearAgoNY() {
+  const d = new Date();
+  d.setUTCFullYear(d.getUTCFullYear() - 1);
+  return d.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+}
+
+function num(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value !== "string") return null;
+  const n = Number(value.replace(/[$,+%]/g, "").replace(/,/g, "").trim());
+  return Number.isFinite(n) ? n : null;
+}
+
+function clean(bars: Bar[]) {
+  const out: Bar[] = [];
+  for (const bar of bars) {
+    if (!bar.date || !Number.isFinite(bar.close) || bar.close <= 0) continue;
+    out.push(bar);
+  }
+  out.sort((a, b) => a.date.localeCompare(b.date));
+  const seen = new Set<string>();
+  return out.filter((bar) => {
+    if (seen.has(bar.date)) return false;
+    seen.add(bar.date);
+    return true;
+  });
+}
+
+async function getJson<T>(url: string): Promise<T> {
+  const response = await fetch(url, FETCH_INIT);
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return response.json() as Promise<T>;
+}
+
+async function mapPool<T, R>(items: T[], size: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const out: R[] = [];
+  for (let i = 0; i < items.length; i += size) {
+    const chunk = await Promise.all(items.slice(i, i + size).map(fn));
+    out.push(...chunk);
+  }
+  return out;
+}
+
+type NasdaqHist = {
+  data?: {
+    tradesTable?: {
+      rows?: Array<{ date?: string; close?: string; volume?: string; open?: string; high?: string; low?: string }>;
+    };
   };
+};
+
+function nasdaqDate(input: string) {
+  const [m, d, y] = input.split("/");
+  if (!y) return "";
+  return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
 }
 
-export function mockSeries(instrument: Instrument, days = 180): Candle[] {
-  const random = rng(hash(instrument.symbol));
-  const base =
-    instrument.kind === "exchange" ? 4800 + (hash(instrument.id) % 8000) / 10 : 40 + (hash(instrument.symbol) % 420);
-  const rows: Candle[] = [];
-  let price = base;
-  const start = new Date("2026-01-02T00:00:00Z");
-
-  for (let i = 0; i < days; i += 1) {
-    const day = new Date(start);
-    day.setUTCDate(start.getUTCDate() + i);
-    if (day.getUTCDay() === 0 || day.getUTCDay() === 6) continue;
-    const drift = 0.00035;
-    const shock = (random() - 0.48) * 0.028;
-    const open = price;
-    const close = Math.max(1, open * (1 + drift + shock));
-    const high = Math.max(open, close) * (1 + random() * 0.012);
-    const low = Math.min(open, close) * (1 - random() * 0.012);
-    rows.push({
-      date: day.toISOString().slice(0, 10),
-      open: round(open),
-      high: round(high),
-      low: round(low),
-      close: round(close),
-      volume: Math.round(1_200_000 + random() * 8_000_000),
-    });
-    price = close;
+async function nasdaqHistory(symbol: string): Promise<Bar[]> {
+  const url = `https://api.nasdaq.com/api/quote/${encodeURIComponent(symbol)}/historical?assetclass=stocks&fromdate=${yearAgoNY()}&todate=${todayNY()}&limit=9999`;
+  const data = await getJson<NasdaqHist>(url);
+  const rows = data.data?.tradesTable?.rows ?? [];
+  const bars: Bar[] = [];
+  for (const row of rows) {
+    if (!row.date) continue;
+    const close = num(row.close);
+    const open = num(row.open) ?? close;
+    const high = num(row.high) ?? close;
+    const low = num(row.low) ?? close;
+    const volume = num(row.volume) ?? 0;
+    if (close == null || open == null || high == null || low == null) continue;
+    bars.push({ date: nasdaqDate(row.date), open, high, low, close, volume: volume ?? 0 });
   }
-  return rows;
+  return clean(bars);
 }
 
-function round(n: number) {
-  return Math.round(n * 100) / 100;
-}
+type NasdaqInfo = {
+  data?: {
+    primaryData?: { lastSalePrice?: string; volume?: string };
+  };
+};
 
-export function mockNews(instrument: Instrument) {
-  const subject = instrument.kind === "exchange" ? instrument.name : instrument.symbol;
-  return [
-    {
-      time: "09:14",
-      source: "Reuters",
-      title: `${subject} opens mixed as rates stay in focus`,
-    },
-    {
-      time: "11:02",
-      source: "Bloomberg",
-      title: `Flows into ${instrument.venue} heavy; ${subject} volume above 20-day average`,
-    },
-    {
-      time: "13:40",
-      source: "WSJ",
-      title: `Analysts split on near-term path for ${subject}`,
-    },
-    {
-      time: "15:06",
-      source: "FT",
-      title: `Macro calendar: CPI tomorrow — ${subject} implied move 1.4%`,
-    },
-  ];
-}
-
-export function mockCompany(instrument: Instrument) {
-  if (instrument.kind === "exchange") {
-    return [
-      ["Venue", instrument.name],
-      ["Region", instrument.region],
-      ["Session", "09:30–16:00 local"],
-      ["Listed names", "2,400+"],
-      ["Primary index", instrument.symbol === "NASDAQ" ? "NDX" : "Benchmark composite"],
-      ["Currency", instrument.region === "United Kingdom" ? "GBP" : instrument.region === "Japan" ? "JPY" : "USD"],
-    ];
+async function nasdaqLive(symbol: string): Promise<{ price: number; volume: number } | null> {
+  try {
+    const url = `https://api.nasdaq.com/api/quote/${encodeURIComponent(symbol)}/info?assetclass=stocks`;
+    const data = await getJson<NasdaqInfo>(url);
+    const price = num(data.data?.primaryData?.lastSalePrice);
+    const volume = num(data.data?.primaryData?.volume) ?? 0;
+    if (price == null) return null;
+    return { price, volume: volume ?? 0 };
+  } catch {
+    return null;
   }
-  const mcap = instrument.kind === "etf" ? "AUM $48.2B" : "$1.12T";
+}
+
+type YahooChart = {
+  chart?: {
+    result?: Array<{
+      timestamp?: number[];
+      indicators?: {
+        quote?: Array<{
+          open?: (number | null)[];
+          high?: (number | null)[];
+          low?: (number | null)[];
+          close?: (number | null)[];
+          volume?: (number | null)[];
+        }>;
+      };
+    }>;
+  };
+};
+
+async function yahooChart(symbol: string): Promise<Bar[]> {
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1y&includePrePost=false`;
+  const data = await getJson<YahooChart>(url);
+  const result = data.chart?.result?.[0];
+  const ts = result?.timestamp ?? [];
+  const q = result?.indicators?.quote?.[0];
+  if (!q || !ts.length) return [];
+  const bars: Bar[] = [];
+  for (let i = 0; i < ts.length; i += 1) {
+    const close = num(q.close?.[i]);
+    const open = num(q.open?.[i]) ?? close;
+    const high = num(q.high?.[i]) ?? close;
+    const low = num(q.low?.[i]) ?? close;
+    const volume = num(q.volume?.[i]) ?? 0;
+    if (close == null || open == null || high == null || low == null) continue;
+    bars.push({ date: ymd(ts[i]), open, high, low, close, volume: volume ?? 0 });
+  }
+  return clean(bars);
+}
+
+async function oneSymbol(symbol: string): Promise<Bar[]> {
+  try {
+    const bars = await nasdaqHistory(symbol);
+    if (bars.length >= 60) return bars;
+  } catch {
+    // try yahoo
+  }
+  try {
+    const bars = await yahooChart(symbol);
+    if (bars.length >= 60) return bars;
+  } catch {
+    // empty
+  }
+  return [];
+}
+
+function overlayLive(bars: Bar[], live: { price: number; volume: number } | null) {
+  if (!live || bars.length === 0) return bars;
+  const last = bars[bars.length - 1];
+  if (last.date !== todayNY()) return bars;
   return [
-    ["Symbol", instrument.symbol],
-    ["Name", instrument.name],
-    ["Venue", instrument.venue],
-    ["Type", instrument.kind === "etf" ? "ETF" : "Common stock"],
-    [instrument.kind === "etf" ? "AUM" : "Market cap", mcap],
-    ["Sector", instrument.kind === "etf" ? "Broad / thematic" : "Placeholder — live data later"],
-    ["Next earnings", instrument.kind === "stock" ? "2026-10-22" : "—"],
-    ["PE / yield", instrument.kind === "stock" ? "28.4 / 0.6%" : "Dist. yield 1.4%"],
+    ...bars.slice(0, -1),
+    {
+      ...last,
+      close: live.price,
+      high: Math.max(last.high, live.price),
+      low: Math.min(last.low, live.price),
+      volume: live.volume || last.volume,
+    },
   ];
 }
 
-export function mockAccuracy() {
-  return [
-    { label: "Hit rate", value: "54.8%" },
-    { label: "MAE (21d)", value: "3.1%" },
-    { label: "Brier", value: "0.21" },
-    { label: "Sample", value: "126 calls" },
-  ];
+export async function loadUniverse(preferred?: string): Promise<SeriesPack> {
+  if (cache && Date.now() - cache.at < CACHE_MS && (!preferred || cache.pack.bars[preferred])) {
+    const pack: SeriesPack = { bars: { ...cache.pack.bars }, source: cache.pack.source };
+    if (preferred) {
+      const live = await nasdaqLive(preferred);
+      if (pack.bars[preferred]) pack.bars[preferred] = overlayLive(pack.bars[preferred], live);
+      if (live) pack.livePrice = live.price;
+    }
+    return pack;
+  }
+
+  const bars: Record<string, Bar[]> = {};
+  await mapPool(SYMBOLS, 8, async (symbol) => {
+    const series = await oneSymbol(symbol);
+    if (series.length >= 60) bars[symbol] = series;
+    return symbol;
+  });
+
+  if (preferred && !bars[preferred]) {
+    throw new Error(`Could not load prices for ${preferred}`);
+  }
+  if (Object.keys(bars).length === 0) {
+    throw new Error("Could not load market prices");
+  }
+
+  const source = "Nasdaq";
+  cache = { at: Date.now(), pack: { bars, source } };
+
+  const pack: SeriesPack = { bars: { ...bars }, source };
+  if (preferred && pack.bars[preferred]) {
+    const live = await nasdaqLive(preferred);
+    pack.bars[preferred] = overlayLive(pack.bars[preferred], live);
+    if (live) pack.livePrice = live.price;
+  }
+  return pack;
+}
+
+export function usMarketOpen(now = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(now);
+  const weekday = parts.find((p) => p.type === "weekday")?.value;
+  const hour = Number(parts.find((p) => p.type === "hour")?.value);
+  const minute = Number(parts.find((p) => p.type === "minute")?.value);
+  if (weekday === "Sat" || weekday === "Sun") return false;
+  const mins = hour * 60 + minute;
+  return mins >= 9 * 60 + 30 && mins < 16 * 60;
 }

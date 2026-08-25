@@ -10,6 +10,8 @@ const config = {
         line: "rgb(var(--line) / <alpha-value>)",
         mute: "rgb(var(--mute) / <alpha-value>)",
         accent: "rgb(var(--accent) / <alpha-value>)",
+        up: "rgb(var(--up) / <alpha-value>)",
+        down: "rgb(var(--down) / <alpha-value>)",
       },
       fontFamily: {
         sans: ["var(--font-sans)", "ui-sans-serif", "system-ui"],

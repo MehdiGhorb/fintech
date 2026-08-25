@@ -17,7 +17,7 @@ const mono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: "Desk",
-  description: "Personal automated trading workbench",
+  description: "Technical trading bot — prices, 5-day view, and suggested orders",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

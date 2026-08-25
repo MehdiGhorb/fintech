@@ -37,7 +37,7 @@ export default function LoginPage() {
       <form onSubmit={onSubmit} className="w-full max-w-sm">
         <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-mute">Desk</p>
         <h1 className="mt-3 text-2xl font-medium tracking-tight">Enter password</h1>
-        <p className="mt-2 text-sm text-mute">Personal workspace. No account.</p>
+        <p className="mt-2 text-sm text-mute">Technical trading desk. No account.</p>
         <input
           type="password"
           autoFocus

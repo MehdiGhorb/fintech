@@ -8,6 +8,8 @@
   --line: 228 228 228;
   --mute: 115 115 115;
   --accent: 10 10 10;
+  --up: 22 163 74;
+  --down: 220 38 38;
   color-scheme: light;
 }
 
@@ -17,6 +19,8 @@
   --line: 28 28 28;
   --mute: 163 163 163;
   --accent: 245 245 245;
+  --up: 74 222 128;
+  --down: 248 113 113;
   color-scheme: dark;
 }
 
@@ -45,42 +49,6 @@ textarea,
 select,
 button {
   font: inherit;
-}
-
-.desk-grid {
-  background-image:
-    linear-gradient(rgb(var(--line)) 1px, transparent 1px),
-    linear-gradient(90deg, rgb(var(--line)) 1px, transparent 1px);
-  background-size: 28px 28px;
-}
-
-.react-flow {
-  width: 100%;
-  height: 100%;
-  background: rgb(var(--paper)) !important;
-}
-
-.react-flow__node {
-  visibility: visible !important;
-}
-
-.react-flow__controls {
-  box-shadow: none !important;
-  border: 1px solid rgb(var(--line));
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.react-flow__controls-button {
-  background: rgb(var(--paper)) !important;
-  border-bottom: 1px solid rgb(var(--line)) !important;
-  fill: rgb(var(--ink)) !important;
-  width: 28px !important;
-  height: 28px !important;
-}
-
-.react-flow__minimap {
-  background: rgb(var(--paper)) !important;
 }
 
 ::-webkit-scrollbar {

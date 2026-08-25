@@ -1,8 +1,8 @@
 # Desk
 
-Personal automated-trading workbench. UI only — agents do not run yet.
+Personal dashboard for the technical trading bot (DJIA 30).
 
-Password: `1963` (no username).
+Shows live prices, a 5-day model view, and buy/sell suggestions. Password: `1963` (no username).
 
 ```bash
 npm install

@@ -1,75 +1,78 @@
-export type AgentType = "market" | "research" | "trading" | "risk";
+export type Bar = {
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+};
 
-export type MarketKind = "exchange" | "stock" | "etf";
+export type Action = "buy" | "sell" | "hold";
 
-export type AIModel =
-  | "gpt-4o"
-  | "gpt-4o-mini"
-  | "o3"
-  | "claude-4-sonnet"
-  | "claude-4-opus"
-  | "gemini-2.5-pro"
-  | "gemini-2.5-flash";
+export type Direction = "up" | "down" | "flat";
 
-export type Cadence = "realtime" | "1m" | "5m" | "15m" | "1h" | "1d" | "manual";
-
-export type MemoryMode = "none" | "session" | "persistent";
-
-export type Instrument = {
-  id: string;
-  kind: MarketKind;
+export type Quote = {
   symbol: string;
   name: string;
-  venue: string;
-  region: string;
+  price: number;
+  prevClose: number;
+  change: number;
+  changePct: number;
+  open: number;
+  high: number;
+  low: number;
+  volume: number;
 };
 
-export type AgentConfig = {
-  name: string;
-  instructions: string;
-  model: AIModel;
-  temperature: number;
-  maxTokens: number;
-  maxIterations: number;
-  cadence: Cadence;
-  memory: MemoryMode;
-  enabled: true | false;
-  tools: string[];
-  // Market
-  fields: string[];
-  lookbackDays: number;
-  // Research
-  sources: string[];
-  // Trading
-  horizon: "intraday" | "swing" | "position";
+export type ForecastPoint = {
+  date: string;
+  close: number;
+  lo: number;
+  hi: number;
+};
+
+export type Forecast = {
+  horizonDays: number;
+  direction: Direction;
+  expectedPct: number;
+  lowPct: number;
+  highPct: number;
+  expectedPrice: number;
+  lowPrice: number;
+  highPrice: number;
   confidence: number;
-  longOnly: boolean;
-  // Risk
+  summary: string;
+  path: ForecastPoint[];
+};
+
+export type Performance = {
+  directionalAcc: number;
+  sharpe: number;
   maxDrawdown: number;
-  maxPosition: number;
-  stopLoss: number;
+  sample: number;
 };
 
-export type AgentNodeData = {
-  type: AgentType;
-  config: AgentConfig;
-};
-
-export type Workspace = {
-  id: string;
+export type Order = {
+  action: "buy" | "sell";
+  symbol: string;
   name: string;
-  instrument: Instrument;
-  createdAt: string;
-  updatedAt: string;
-  nodes: Array<{
-    id: string;
-    type: "agent";
-    position: { x: number; y: number };
-    data: AgentNodeData;
-  }>;
-  edges: Array<{
-    id: string;
-    source: string;
-    target: string;
-  }>;
+  weight: number;
+  reason: string;
+  isSelected: boolean;
+};
+
+export type DeskPayload = {
+  asOf: string;
+  source: string;
+  marketOpen: boolean;
+  quote: Quote;
+  series: { date: string; close: number }[];
+  forecast: Forecast;
+  performance: Performance;
+  orders: Order[];
+  selected: {
+    action: Action;
+    weight: number;
+    reason: string;
+  };
 };
