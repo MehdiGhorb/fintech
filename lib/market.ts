@@ -195,7 +195,12 @@ function overlayLive(bars: Bar[], live: { price: number; volume: number } | null
 }
 
 export async function loadUniverse(preferred?: string): Promise<SeriesPack> {
-  if (cache && Date.now() - cache.at < CACHE_MS && (!preferred || cache.pack.bars[preferred])) {
+  const wanted = preferred ? [preferred] : SYMBOLS;
+  if (
+    cache &&
+    Date.now() - cache.at < CACHE_MS &&
+    (!preferred || cache.pack.bars[preferred])
+  ) {
     const pack: SeriesPack = { bars: { ...cache.pack.bars }, source: cache.pack.source };
     if (preferred) {
       const live = await nasdaqLive(preferred);
@@ -205,12 +210,16 @@ export async function loadUniverse(preferred?: string): Promise<SeriesPack> {
     return pack;
   }
 
-  const bars: Record<string, Bar[]> = {};
-  await mapPool(SYMBOLS, 8, async (symbol) => {
-    const series = await oneSymbol(symbol);
-    if (series.length >= 60) bars[symbol] = series;
-    return symbol;
-  });
+  const bars: Record<string, Bar[]> = cache?.pack.bars ? { ...cache.pack.bars } : {};
+  await mapPool(
+    wanted.filter((s) => !bars[s]),
+    8,
+    async (symbol) => {
+      const series = await oneSymbol(symbol);
+      if (series.length >= 60) bars[symbol] = series;
+      return symbol;
+    },
+  );
 
   if (preferred && !bars[preferred]) {
     throw new Error(`Could not load prices for ${preferred}`);

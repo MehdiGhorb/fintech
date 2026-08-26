@@ -26,7 +26,7 @@ export function AppHeader({
       <div className="min-w-0">
         <div className="flex items-center gap-3">
           <a href="/" className="font-mono text-[11px] uppercase tracking-[0.28em]">
-            Desk
+            Northline
           </a>
           <span className="text-line">/</span>
           <h1 className="truncate text-sm font-medium">{title}</h1>

@@ -16,8 +16,8 @@ const mono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Desk",
-  description: "Technical trading bot — prices, 5-day view, and suggested orders",
+  title: "Northline · FinCast paper",
+  description: "Private $1,000 FinCast paper desk — 50 names, 1-month horizon",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -1,12 +1,17 @@
-# Desk
+# Northline desk
 
-Personal dashboard for the technical trading bot (DJIA 30).
+Private FinCast paper book on [northline-finance.com](https://northline-finance.com).
 
-Shows live prices, a 5-day model view, and buy/sell suggestions. Password: `1963` (no username).
+Password `1963` (no username). $1,000 fake money. 50 names. 1-month FinCast signals from the local GPU.
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+The GPU worker lives in `tradingBot_technical`:
+
+```bash
+.venv/bin/python scripts/paper_desk.py --once --force   # first book
+.venv/bin/python scripts/paper_desk.py --loop            # daytime, stop at 18:00 Paris
+```

@@ -61,6 +61,47 @@ export type Order = {
   isSelected: boolean;
 };
 
+export type BookPosition = {
+  symbol: string;
+  name: string;
+  qty: number;
+  entry: number;
+  last: number;
+  value: number;
+  pnl: number;
+  pnlPct: number;
+  predRet: number;
+  predEnd: number;
+};
+
+export type BookFill = {
+  t: string;
+  symbol: string;
+  side: "buy" | "sell";
+  qty: number;
+  px: number;
+  note: string;
+};
+
+export type Book = {
+  budget: number;
+  cash: number;
+  equity: number;
+  pnl: number;
+  pnlPct: number;
+  origin: string | null;
+  asOf: string | null;
+  model: string;
+  horizon: number;
+  nLong: number;
+  nUniverse: number;
+  broker: string;
+  positions: BookPosition[];
+  cashNames: { symbol: string; name: string; predRet: number }[];
+  fills: BookFill[];
+  marks: { d: string; equity: number }[];
+};
+
 export type DeskPayload = {
   asOf: string;
   source: string;
@@ -75,4 +116,5 @@ export type DeskPayload = {
     weight: number;
     reason: string;
   };
+  book?: Book;
 };

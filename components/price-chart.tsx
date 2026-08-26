@@ -51,7 +51,7 @@ export function PriceChart({
   return (
     <div>
       <div className="mb-3 flex items-center justify-between gap-3">
-        <p className="text-xs text-mute">Solid line is history. Dotted line is the next 5 days.</p>
+        <p className="text-xs text-mute">Solid line is history. Dotted line is FinCast’s next 21 sessions.</p>
         <div className="flex rounded-md border border-line p-0.5">
           {RANGES.map((item) => (
             <button

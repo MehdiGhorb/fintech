@@ -35,9 +35,9 @@ export default function LoginPage() {
         <ThemeToggle />
       </div>
       <form onSubmit={onSubmit} className="w-full max-w-sm">
-        <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-mute">Desk</p>
+        <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-mute">Northline</p>
         <h1 className="mt-3 text-2xl font-medium tracking-tight">Enter password</h1>
-        <p className="mt-2 text-sm text-mute">Technical trading desk. No account.</p>
+        <p className="mt-2 text-sm text-mute">Private FinCast paper desk. No username.</p>
         <input
           type="password"
           autoFocus
